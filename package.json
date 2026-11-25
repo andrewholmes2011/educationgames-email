@@ -1,0 +1,21 @@
+{
+  "name": "educationgames-mail",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Private site-only district mailbox platform on Cloudflare Workers, D1, and R2.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test",
+    "db:local": "wrangler d1 migrations apply educationgames-mail-db --local",
+    "db:remote": "wrangler d1 migrations apply educationgames-mail-db --remote",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20261125.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.50.0"
+  }
+}
