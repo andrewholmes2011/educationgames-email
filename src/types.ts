@@ -1,6 +1,5 @@
 export interface Env {
   DB: D1Database;
-  MAIL_FILES: R2Bucket;
   ASSETS: Fetcher;
   APP_NAME: string;
   SESSION_DAYS: string;
