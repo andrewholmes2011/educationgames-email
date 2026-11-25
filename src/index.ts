@@ -1,0 +1,25 @@
+import type {Env} from "./types";
+import {currentSession,requireAdmin,requireSession,login,logout,bootstrap,createInvite,acceptInvite,getInviteInfo,publicUser} from "./auth";
+import {listMessages,getMessage,updateMessage,sendMessage,downloadAttachment} from "./mail";
+import {error,json} from "./security";
+function secureHeaders(response:Response):Response{const headers=new Headers(response.headers);headers.set("x-content-type-options","nosniff");headers.set("referrer-policy","strict-origin-when-cross-origin");headers.set("x-frame-options","DENY");headers.set("permissions-policy","camera=(),microphone=(),geolocation=()");headers.set("content-security-policy","default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
+function assertSameOrigin(request:Request):void{if(["GET","HEAD","OPTIONS"].includes(request.method))return;const origin=request.headers.get("origin");if(!origin)return;if(origin!==new URL(request.url).origin)throw new Response(JSON.stringify({error:"Cross-origin request rejected."}),{status:403,headers:{"content-type":"application/json"}});}
+async function route(request:Request,env:Env):Promise<Response>{const url=new URL(request.url),path=url.pathname;
+if(path==="/api/health"&&request.method==="GET"){const db=await env.DB.prepare("SELECT 1 AS ok").first<{ok:number}>();return json({ok:db?.ok===1,app:env.APP_NAME,mode:"site-only",public_email:false});}
+if(path==="/api/districts"&&request.method==="GET"){const districts=await env.DB.prepare("SELECT code,display_name FROM districts WHERE enabled=1 ORDER BY display_name").all();return json({districts:districts.results||[]});}
+if(path==="/api/bootstrap/status"&&request.method==="GET"){const row=await env.DB.prepare("SELECT COUNT(*) AS count FROM users").first<{count:number}>();return json({needed:(row?.count||0)===0&&env.ALLOW_BOOTSTRAP==="true"});}
+if(path==="/api/bootstrap"&&request.method==="POST")return bootstrap(request,env);
+if(path==="/api/auth/login"&&request.method==="POST")return login(request,env);
+if(path==="/api/auth/logout"&&request.method==="POST")return logout(request,env);
+const inviteInfo=path.match(/^\/api\/invites\/([a-f0-9]+)$/);if(inviteInfo&&request.method==="GET")return getInviteInfo(env,inviteInfo[1]);
+const inviteAccept=path.match(/^\/api\/invites\/([a-f0-9]+)\/accept$/);if(inviteAccept&&request.method==="POST")return acceptInvite(request,env,inviteAccept[1]);
+if(path==="/api/auth/me"&&request.method==="GET"){const session=await currentSession(request,env);return session?json({user:publicUser(session.user)}):error("Not signed in.",401);}
+if(path==="/api/admin/invites"&&request.method==="POST"){const admin=await requireAdmin(request,env);return createInvite(request,env,admin.user);}
+if(path==="/api/admin/users"&&request.method==="GET"){await requireAdmin(request,env);const users=await env.DB.prepare("SELECT id,email_alias,display_name,role,status,district_code,created_at FROM users ORDER BY created_at DESC").all();return json({users:users.results||[]});}
+if(path==="/api/admin/users/status"&&request.method==="POST"){const admin=await requireAdmin(request,env),body=await request.json() as {user_id?:string;status?:string};if(!body.user_id||!["active","disabled"].includes(body.status||""))return error("Invalid user status request.");if(body.user_id===admin.user.id&&body.status==="disabled")return error("You cannot disable your own account.");await env.DB.prepare("UPDATE users SET status=? WHERE id=?").bind(body.status,body.user_id).run();if(body.status==="disabled")await env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(body.user_id).run();return json({ok:true});}
+if(path==="/api/messages"&&request.method==="GET"){const session=await requireSession(request,env);return listMessages(request,env,session.user);}
+if(path==="/api/messages/send"&&request.method==="POST"){const session=await requireSession(request,env);return sendMessage(request,env,session.user);}
+const message=path.match(/^\/api\/messages\/([a-f0-9-]+)$/);if(message&&request.method==="GET"){const session=await requireSession(request,env);return getMessage(env,session.user,message[1]);}if(message&&request.method==="PATCH"){const session=await requireSession(request,env);return updateMessage(request,env,session.user,message[1]);}
+const attachment=path.match(/^\/api\/attachments\/([a-f0-9-]+)$/);if(attachment&&request.method==="GET"){const session=await requireSession(request,env);return downloadAttachment(env,session.user,attachment[1]);}
+return error("Not found.",404);}
+export default {async fetch(request:Request,env:Env):Promise<Response>{try{assertSameOrigin(request);if(new URL(request.url).pathname.startsWith("/api/"))return secureHeaders(await route(request,env));return secureHeaders(await env.ASSETS.fetch(request));}catch(e){if(e instanceof Response)return secureHeaders(e);console.error("Unhandled request error",e);return secureHeaders(error("Internal server error.",500));}}};
