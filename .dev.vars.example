@@ -1,0 +1,2 @@
+# Copy to .dev.vars and set a random secret of at least 32 characters.
+BOOTSTRAP_SECRET="replace-with-a-long-random-secret"
