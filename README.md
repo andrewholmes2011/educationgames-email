@@ -97,7 +97,7 @@ The repository includes `.github/workflows/deploy.yml`. Configure these GitHub A
 - `CLOUDFLARE_API_TOKEN` — scoped to deploy Workers and manage the needed D1/R2 resources.
 - `CLOUDFLARE_ACCOUNT_ID` — your Cloudflare account ID.
 
-Push to `main` to run checks and deploy. The D1 database ID must already be committed in `wrangler.jsonc`; do not commit any API token or bootstrap secret.
+Push to `main` to run checks. The deployment step is intentionally gated: after the D1 database and R2 bucket exist, the database ID is configured, and the Cloudflare token/account secrets are saved, add the repository Actions variable `CLOUDFLARE_DEPLOY_ENABLED=true` to enable deployment. The D1 database ID must already be committed in `wrangler.jsonc`; do not commit any API token or bootstrap secret.
 
 ## Features
 
