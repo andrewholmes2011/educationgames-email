@@ -18,22 +18,6 @@ export function sanitizeNewsletterHtml(input:string):string{
  return html;
 }
 function textFromHtml(html:string):string{return html.replace(/<\s*br\s*\/?>/gi,"\n").replace(/<\/(p|h[1-6]|div|li|blockquote)>/gi,"\n").replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").trim().slice(0,100000);}
-async function tokenFor(env:Env,userId:string):Promise<string>{
- const token=randomToken(32),hash=await sha256(token);
- await env.DB.prepare("INSERT INTO newsletter_preferences(user_id,token_hash) VALUES(?,?) ON CONFLICT(user_id) DO NOTHING").bind(userId,hash).run();
- const existing=await env.DB.prepare("SELECT token_hash FROM newsletter_preferences WHERE user_id=?").bind(userId).first<{token_hash:string}>();
- if(existing?.token_hash===hash)return token;
- // Existing unsubscribe links remain valid across campaigns; return the raw token only when this request created it.
- // A token cannot be recovered from its hash, so rotate only when a new subscription row is created.
- return "";
-}
-async function ensureToken(env:Env,userId:string):Promise<string>{
- const current=await env.DB.prepare("SELECT token_hash FROM newsletter_preferences WHERE user_id=?").bind(userId).first<{token_hash:string}>();
- if(current)return "";
- const token=randomToken(32),hash=await sha256(token);
- await env.DB.prepare("INSERT OR IGNORE INTO newsletter_preferences(user_id,token_hash) VALUES(?,?)").bind(userId,hash).run();
- return token;
-}
 export async function newsletterStatus(env:Env):Promise<Response>{
  const r=await env.DB.prepare("SELECT COUNT(*) AS total FROM users u LEFT JOIN newsletter_preferences p ON p.user_id=u.id WHERE u.status='active' AND (p.unsubscribed_at IS NULL)").first<{total:number}>();
  const d=await env.DB.prepare("SELECT code,display_name FROM districts WHERE enabled=1 ORDER BY display_name").all();
@@ -56,10 +40,9 @@ export async function sendNewsletter(request:Request,env:Env,admin:AuthUser):Pro
  await env.DB.prepare("INSERT INTO newsletter_campaigns(id,subject,html_body,text_body,audience,created_by,recipient_count) VALUES(?,?,?,?,?,?,?)").bind(campaignId,subject,html,plain,district||"all",admin.id,recipients.length).run();
  let delivered=0;
  for(const user of recipients){
-  let token="";
-  if(!user.token_hash){token=await ensureToken(env,user.id);}
-  const pref=await env.DB.prepare("SELECT token_hash FROM newsletter_preferences WHERE user_id=?").bind(user.id).first<{token_hash:string}>();
-  const unsubscribe=token?origin+"/unsubscribe/"+token:origin+"/unsubscribe/manage";
+  const token=randomToken(32),tokenHash=await sha256(token);
+  await env.DB.prepare("INSERT INTO newsletter_preferences(user_id,token_hash,unsubscribed_at) VALUES(?,?,NULL) ON CONFLICT(user_id) DO UPDATE SET token_hash=excluded.token_hash,updated_at=datetime('now')").bind(user.id,tokenHash).run();
+  const unsubscribe=origin+"/unsubscribe/"+token;
   const footer='<div style="border-top:1px solid #dbe4ef;margin-top:28px;padding-top:16px;color:#64748b;font:12px Arial,sans-serif">You are receiving this EducationGames Mail newsletter. <a href="'+unsubscribe+'" style="color:#2563eb">Unsubscribe</a></div>';
   const full='<div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#18263b;line-height:1.65">'+html+footer+'</div>';
   await env.DB.prepare("INSERT INTO messages(id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,html_body,message_id,is_read,sent_at,received_at) VALUES(?,?,'inbound','inbox',?,'[]','[]',?,?,?,?,0,?,?)").bind(crypto.randomUUID(),user.id,admin.email_alias,subject,plain+"\n\nUnsubscribe: "+unsubscribe,campaignId,crypto.randomUUID(),now,now).run();
