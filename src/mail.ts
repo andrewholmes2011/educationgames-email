@@ -1,5 +1,6 @@
 import type {Env,AuthUser} from "./types";
 import {cleanFilename,error,json,validEmail,validCommgaAddress} from "./security";
+import {sanitizeNewsletterHtml} from "./newsletters";
 const CHUNK_BYTES=128*1024;
 async function resolveInternalRecipients(address:string,env:Env):Promise<Array<{address:string;id:string}>|null>{
  const normalized=address.trim().toLowerCase();if(!validEmail(normalized))return null;
@@ -48,7 +49,7 @@ async function storeAttachment(env:Env,ownerId:string,messageId:string,file:Stor
  }
 }
 export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise<Response>{
- const form=await request.formData(),toRaw=String(form.get("to")||""),ccRaw=String(form.get("cc")||""),requestedFrom=String(form.get("from")||"").trim().toLowerCase(),subject=String(form.get("subject")||"").trim().slice(0,998),textBody=String(form.get("text")||"").slice(0,100000);
+ const form=await request.formData(),toRaw=String(form.get("to")||""),ccRaw=String(form.get("cc")||""),requestedFrom=String(form.get("from")||"").trim().toLowerCase(),subject=String(form.get("subject")||"").trim().slice(0,998),textBody=String(form.get("text")||"").slice(0,100000),htmlBody=sanitizeNewsletterHtml(String(form.get("html")||""));
  let fromAddress=user.email_alias;
  if(requestedFrom&&requestedFrom!==user.email_alias){
   const group=await env.DB.prepare("SELECT g.address FROM mail_groups g JOIN mail_group_members m ON m.group_id=g.id WHERE g.address=? COLLATE NOCASE AND g.enabled=1 AND m.user_id=?").bind(requestedFrom,user.id).first<{address:string}>();
@@ -90,11 +91,11 @@ export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise
   stored.push({id:crypto.randomUUID(),filename:cleanFilename(value.name),type:value.type||"application/octet-stream",size:value.size,bytes:new Uint8Array(await value.arrayBuffer())});
  }
  const sentAt=new Date().toISOString(),messageId=crypto.randomUUID(),sentRowId=crypto.randomUUID();
- await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'outbound','sent',?,?,?,?,?,?,1,?,?)").bind(sentRowId,user.id,fromAddress,JSON.stringify(recipients),JSON.stringify(cc),subject,textBody,messageId,sentAt,sentAt).run();
+ await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,html_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'outbound','sent',?,?,?,?,?,?,?,1,?,?)").bind(sentRowId,user.id,fromAddress,JSON.stringify(recipients),JSON.stringify(cc),subject,textBody,htmlBody,messageId,sentAt,sentAt).run();
  for(const file of stored)await storeAttachment(env,user.id,sentRowId,file);
  for(const recipient of internalRecipients){
   const inboxId=crypto.randomUUID();
-  await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'inbound','inbox',?,?,?,?,?,?,0,?,?)").bind(inboxId,recipient.id,fromAddress,JSON.stringify([recipient.address]),JSON.stringify(cc),subject,textBody,messageId,sentAt,sentAt).run();
+  await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,html_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'inbound','inbox',?,?,?,?,?,?,?,0,?,?)").bind(inboxId,recipient.id,fromAddress,JSON.stringify([recipient.address]),JSON.stringify(cc),subject,textBody,htmlBody,messageId,sentAt,sentAt).run();
   for(const file of stored)await storeAttachment(env,recipient.id,inboxId,{...file,id:crypto.randomUUID()});
  }
  return json({ok:true,id:sentRowId,delivery:"internal-only"},201);
