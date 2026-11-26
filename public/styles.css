@@ -158,3 +158,13 @@ th{color:#9db5d2}
 #list-choice,#group-create input,#list-create input{width:100%}
 #groups-existing,#lists-existing{margin-top:16px}
 .sender-item small{overflow-wrap:anywhere}
+
+/* Shared group inbox invitations */
+.group-card{padding:14px 0;border-top:1px solid var(--line)}
+.group-card-head,.group-invite-controls{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.group-card-head>div{min-width:0}
+.group-card-head small{display:block;color:var(--muted);font-size:12px;margin-top:5px;overflow-wrap:anywhere}
+.group-invite-controls{margin-top:12px;justify-content:flex-start}
+.group-invite-controls select{max-width:460px;min-width:220px}
+.group-invite-controls button{white-space:nowrap}
+@media(max-width:600px){.group-card-head,.group-invite-controls{align-items:stretch;flex-direction:column}.group-invite-controls select{max-width:none;width:100%}.group-invite-controls button{width:100%}}
