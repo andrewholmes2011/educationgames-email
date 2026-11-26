@@ -168,3 +168,26 @@ th{color:#9db5d2}
 
 /* Saved-account sign-in */
 .remember-option{display:flex;align-items:center;gap:9px;margin:12px 0;color:#52647c;font-size:12px}.remember-option input{width:16px;height:16px;margin:0;accent-color:#2584df}.saved-accounts{margin-top:22px;padding-top:18px;border-top:1px solid #dce5ef;text-align:left}.saved-accounts h3{font-size:14px;margin:0 0 7px;color:#18395d}.saved-account{display:flex;align-items:center;gap:8px;margin:8px 0}.saved-account-choice{flex:1;min-width:0;display:grid;gap:4px;text-align:left;padding:11px 13px;border:1px solid #d6e1ef;border-radius:9px;background:#f5f9ff;color:#18395d}.saved-account-choice small{font-size:11px;color:#627a96;overflow-wrap:anywhere}.saved-account-remove{width:36px;height:36px;border:1px solid #e0e5ec;border-radius:8px;background:#fff;color:#8b3540;font-size:20px}.saved-account-choice:hover,.saved-account-remove:hover{border-color:#5598d9;background:#edf5ff}.auth-card .saved-accounts .muted{font-size:11px}
+
+/* Two-column administrator workspace */
+.admin-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:18px}
+.admin-column{display:grid;align-content:start;gap:16px;min-width:0}
+.admin-card{margin:0;padding:20px;min-width:0}
+.admin-card h3{margin:0 0 8px;font-size:16px}
+.admin-card>.muted{margin:0 0 14px}
+.admin-card-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.admin-count{font-size:11px;color:#91a9c8;border:1px solid #285078;border-radius:20px;padding:4px 9px;white-space:nowrap}
+.admin-record{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line);min-width:0}
+.admin-record-main{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+.admin-record-main b{font-size:13px}
+.admin-record-main small{font-size:11px;color:var(--muted);line-height:1.45;overflow-wrap:anywhere}
+.admin-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;flex-shrink:0}
+.admin-actions button,.admin-record>button{font-size:11px;padding:7px 10px;margin:0}
+.admin-record-stack{align-items:flex-start}
+.inline-admin-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) auto;align-items:end;gap:8px}
+.inline-admin-form label{margin:8px 0}
+.admin-card form>button{margin-top:8px}
+.admin-card .member-picker{margin:10px 0;max-height:210px}
+.admin-card .error{overflow-wrap:anywhere}
+@media(max-width:980px){.admin-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.admin-card{padding:15px}.admin-record{align-items:flex-start;flex-direction:column}.admin-actions{justify-content:flex-start}.inline-admin-form{grid-template-columns:1fr}.inline-admin-form button{width:100%}}
