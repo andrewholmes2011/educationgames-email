@@ -2,6 +2,7 @@ const senderAdminPath="/api/admin/senders";
 window.renderAdminPanel=async function(){
  const c=document.querySelector("#content");
  c.innerHTML=`
+ <div class="notice privacy-notice">Admins can read messages, and anyone can report one. Be kind. Messages are deleted after 90 days.</div>
  <div class="admin-grid">
   <div class="admin-column">
    <section class="panel admin-card"><div class="admin-card-title"><div><h3>Accounts</h3><p class="muted">Create, edit, reset passwords, disable, or delete mailboxes.</p></div><span id="account-count" class="admin-count"></span></div><div id="admin-users">Loading accounts…</div></section>
