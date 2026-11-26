@@ -1,5 +1,5 @@
 import type {Env,AuthUser} from "./types";
-import {error,json,validEmail} from "./security";
+import {error,json,validCommgaAddress} from "./security";
 
 async function hashToken(token:string):Promise<string>{
  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token));
@@ -26,7 +26,7 @@ export async function createGroup(request:Request,env:Env,admin:AuthUser):Promis
  const body=await request.json() as {name?:string;address?:string;member_ids?:string[]};
  const name=(body.name||"").trim().slice(0,80),address=(body.address||"").trim().toLowerCase(),ids=Array.isArray(body.member_ids)?[...new Set(body.member_ids.filter(x=>typeof x==="string"))]:[];
  if(!name)return error("A group name is required.");
- if(!validEmail(address)||!address.endsWith(".holmes"))return error("Use a valid internal .holmes group address.");
+ if(!validCommgaAddress(address))return error("Use a valid @commga.com group address.");
  if(!ids.length||ids.length>100)return error("Select between 1 and 100 group members.");
  const conflict=await env.DB.prepare("SELECT email_alias AS address FROM users WHERE email_alias=? COLLATE NOCASE UNION SELECT address FROM sender_identities WHERE address=? COLLATE NOCASE UNION SELECT address FROM mail_groups WHERE address=? COLLATE NOCASE").bind(address,address,address).first();
  if(conflict)return error("That address is already in use.");
