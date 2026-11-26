@@ -47,7 +47,7 @@ export async function sendNewsletter(request:Request,env:Env,admin:AuthUser):Pro
   const unsubscribe=origin+"/unsubscribe/"+token;
   const footer='<div class="newsletter-footer">You are receiving this EducationGames Mail newsletter. <a href="'+unsubscribe+'">Unsubscribe</a></div>';
   const full='<div class="newsletter-mail-shell">'+html+footer+'</div>';
-  await env.DB.prepare("INSERT INTO messages(id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,html_body,message_id,is_read,sent_at,received_at) VALUES(?,?,'inbound','inbox',?,'[]','[]',?,?,?,?,0,?,?)").bind(crypto.randomUUID(),user.id,admin.email_alias,subject,plain+"\n\nUnsubscribe: "+unsubscribe,full,campaignId,now,now).run();
+  await env.DB.prepare("INSERT INTO messages(id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,html_body,message_id,is_read,sent_at,received_at) VALUES(?,?,'inbound','inbox',?,?,'[]',?,?,?,?,0,?,?)").bind(crypto.randomUUID(),user.id,admin.email_alias,JSON.stringify([user.email_alias]),subject,plain+"\n\nUnsubscribe: "+unsubscribe,full,campaignId,now,now).run();
   delivered++;
  }
  return json({ok:true,campaign_id:campaignId,delivered},201);
