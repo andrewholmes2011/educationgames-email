@@ -18,7 +18,7 @@ export async function listMessages(request:Request,env:Env,user:AuthUser):Promis
  const url=new URL(request.url),folder=url.searchParams.get("folder")||"inbox",allowed=["inbox","sent","drafts","trash","archive"];
  if(!allowed.includes(folder))return error("Invalid folder.");
  const limit=Math.min(100,Math.max(1,Number(url.searchParams.get("limit")||50))),before=url.searchParams.get("before");
- const query="SELECT id,direction,folder,from_address,to_addresses,cc_addresses,subject,substr(text_body,1,500) AS preview,is_read,sent_at,received_at FROM messages WHERE owner_id=? AND folder=? "+(before?"AND received_at < ? ":"")+"ORDER BY received_at DESC LIMIT ?";
+ const query="SELECT id,direction,folder,from_address,to_addresses,cc_addresses,subject,substr(text_body,1,500) AS preview,is_read,sent_at,received_at FROM messages WHERE owner_id=? AND folder=? AND datetime(COALESCE(sent_at,received_at,created_at)) >= datetime('now','-90 days') "+(before?"AND received_at < ? ":"")+"ORDER BY received_at DESC LIMIT ?";
  const stmt=env.DB.prepare(query),rows=before?await stmt.bind(user.id,folder,before,limit).all():await stmt.bind(user.id,folder,limit).all();
  return json({messages:rows.results||[]});
 }
@@ -52,21 +52,16 @@ export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise
  const form=await request.formData(),toRaw=String(form.get("to")||""),ccRaw=String(form.get("cc")||""),requestedFrom=String(form.get("from")||"").trim().toLowerCase(),subject=String(form.get("subject")||"").trim().slice(0,998),textBody=String(form.get("text")||"").slice(0,100000),htmlBody=sanitizeNewsletterHtml(String(form.get("html")||""));
  let fromAddress=user.email_alias;
  if(requestedFrom&&requestedFrom!==user.email_alias){
-  const group=await env.DB.prepare("SELECT g.address FROM mail_groups g JOIN mail_group_members m ON m.group_id=g.id WHERE g.address=? COLLATE NOCASE AND g.enabled=1 AND m.user_id=?").bind(requestedFrom,user.id).first<{address:string}>();
-  if(group){fromAddress=group.address;}
-  else if(user.role==="admin"){
-   if(!validCommgaAddress(requestedFrom))return error("Admin sender addresses must use @commga.com.",400);
-   const account=await env.DB.prepare("SELECT id FROM users WHERE email_alias=? COLLATE NOCASE AND status='active'").bind(requestedFrom).first<{id:string}>();
-   if(account&&account.id!==user.id)return error("An administrator cannot send using another account's personal mailbox address.",409);
-   const existing=await env.DB.prepare("SELECT reply_to_user_id FROM sender_identities WHERE address=? COLLATE NOCASE AND enabled=1").bind(requestedFrom).first<{reply_to_user_id:string}>();
-   if(existing&&existing.reply_to_user_id!==user.id)return error("That sender address is already assigned to a different reply mailbox.",409);
-   const groupAddress=await env.DB.prepare("SELECT id FROM mail_groups WHERE address=? COLLATE NOCASE").bind(requestedFrom).first();
-   if(groupAddress)return error("Choose the group from the available group sender list.",403);
-   if(!existing)await env.DB.prepare("INSERT INTO sender_identities (id,address,display_name,reply_to_user_id,created_by) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),requestedFrom,"Administrator sender",user.id,user.id).run();
-   fromAddress=requestedFrom;
+  const group=await env.DB.prepare("SELECT g.address FROM mail_groups g WHERE g.address=? COLLATE NOCASE AND g.enabled=1").bind(requestedFrom).first<{address:string}>();
+  if(group){
+   if(user.role!=="admin"){
+    const member=await env.DB.prepare("SELECT 1 AS ok FROM mail_group_members m JOIN mail_groups g ON g.id=m.group_id WHERE g.address=? COLLATE NOCASE AND m.user_id=? AND g.enabled=1").bind(requestedFrom,user.id).first();
+    if(!member)return error("You are not a member of that group mailbox.",403);
+   }
+   fromAddress=group.address;
   }else{
    const identity=await env.DB.prepare("SELECT address FROM sender_identities WHERE address=? COLLATE NOCASE AND enabled=1").bind(requestedFrom).first<{address:string}>();
-   if(!identity)return error("That sender identity is not available.",403);
+   if(!identity)return error("Choose your personal address or an available group/sender address.",403);
    fromAddress=identity.address;
   }
  }
@@ -100,6 +95,19 @@ export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise
  }
  return json({ok:true,id:sentRowId,delivery:"internal-only"},201);
 }
+
+export async function reportMessage(request:Request,env:Env,user:AuthUser,id:string):Promise<Response>{
+ const body=await request.json() as {reason?:string;details?:string};
+ const message=await env.DB.prepare("SELECT id,owner_id,from_address,to_addresses,subject,text_body,html_body FROM messages WHERE id=? AND owner_id=?").bind(id,user.id).first<any>();
+ if(!message)return error("Message not found.",404);
+ const reason=String(body.reason||"").trim().slice(0,80),details=String(body.details||"").trim().slice(0,2000);
+ if(!["Harassment or bullying","Threats or intimidation","Spam or unwanted messages","Inappropriate content","Impersonation","Other concern"].includes(reason))return error("Choose a valid report reason.");
+ const existing=await env.DB.prepare("SELECT id FROM message_reports WHERE message_id=? AND reporter_id=? AND status='open'").bind(id,user.id).first();
+ if(existing)return error("You have already reported this message.",409);
+ await env.DB.prepare("INSERT INTO message_reports(id,message_id,message_owner_id,reporter_id,reporter_email,message_from,message_to,message_subject,message_text,message_html,reason,details) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),id,message.owner_id,user.id,message.owner_id,message.from_address,message.to_addresses,message.subject,message.text_body,message.html_body,reason,details).run();
+ return json({ok:true},201);
+}
+
 export async function downloadAttachment(env:Env,user:AuthUser,attachmentId:string):Promise<Response>{
  const row=await env.DB.prepare("SELECT filename,content_type,size FROM attachments WHERE id=? AND owner_id=?").bind(attachmentId,user.id).first<{filename:string;content_type:string;size:number}>();
  if(!row)return error("Attachment not found.",404);
