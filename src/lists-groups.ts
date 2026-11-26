@@ -1,32 +1,13 @@
 import type {Env,AuthUser} from "./types";
 import {error,json,validEmail} from "./security";
 
-export async function listMailingLists(env:Env,user:AuthUser):Promise<Response>{
- const rows=await env.DB.prepare("SELECT l.id,l.name,COUNT(m.user_id) AS member_count FROM mailing_lists l LEFT JOIN mailing_list_members m ON m.list_id=l.id WHERE l.owner_id=? GROUP BY l.id ORDER BY l.name COLLATE NOCASE").bind(user.id).all<any>();
- const lists=[];
- for(const row of rows.results||[]){
-  const members=await env.DB.prepare("SELECT u.id,u.email_alias,u.display_name FROM mailing_list_members m JOIN users u ON u.id=m.user_id WHERE m.list_id=? AND u.status='active' ORDER BY u.display_name COLLATE NOCASE").bind(row.id).all<any>();
-  lists.push({...row,members:members.results||[]});
- }
- return json({lists});
+async function hashToken(token:string):Promise<string>{
+ const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token));
+ return [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
-export async function createMailingList(request:Request,env:Env,user:AuthUser):Promise<Response>{
- const body=await request.json() as {name?:string;member_ids?:string[]};
- const name=(body.name||"").trim().slice(0,60),ids=Array.isArray(body.member_ids)?[...new Set(body.member_ids.filter(x=>typeof x==="string"))]:[];
- if(!name)return error("A list name is required.");
- if(!ids.length||ids.length>100)return error("Select between 1 and 100 active members.");
- const valid=await env.DB.prepare("SELECT id FROM users WHERE status='active' AND id IN ("+ids.map(()=>"?").join(",")+")").bind(...ids).all<{id:string}>();
- if((valid.results||[]).length!==ids.length)return error("One or more selected accounts are unavailable.");
- const id=crypto.randomUUID();
- try{await env.DB.prepare("INSERT INTO mailing_lists (id,owner_id,name) VALUES (?,?,?)").bind(id,user.id,name).run();}
- catch{return error("A list with that name already exists.");}
- for(const member of ids)await env.DB.prepare("INSERT INTO mailing_list_members (list_id,user_id) VALUES (?,?)").bind(id,member).run();
- return json({ok:true,id},201);
-}
-export async function deleteMailingList(env:Env,user:AuthUser,id:string):Promise<Response>{
- const r=await env.DB.prepare("DELETE FROM mailing_lists WHERE id=? AND owner_id=?").bind(id,user.id).run();
- if(!r.meta.changes)return error("Mailing list not found.",404);
- return json({ok:true});
+function newToken():string{
+ const bytes=crypto.getRandomValues(new Uint8Array(32));
+ return [...bytes].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
 export async function listGroups(env:Env,user:AuthUser):Promise<Response>{
  const rows=await env.DB.prepare("SELECT g.id,g.name,g.address FROM mail_groups g JOIN mail_group_members m ON m.group_id=g.id WHERE m.user_id=? AND g.enabled=1 ORDER BY g.name COLLATE NOCASE").bind(user.id).all();
@@ -59,4 +40,43 @@ export async function createGroup(request:Request,env:Env,admin:AuthUser):Promis
 export async function deleteGroup(env:Env,id:string):Promise<Response>{
  await env.DB.prepare("UPDATE mail_groups SET enabled=0 WHERE id=?").bind(id).run();
  return json({ok:true});
+}
+export async function inviteToGroup(request:Request,env:Env,admin:AuthUser,groupId:string):Promise<Response>{
+ const body=await request.json() as {user_id?:string},userId=(body.user_id||"").trim();
+ if(!userId)return error("Choose an account to invite.");
+ const group=await env.DB.prepare("SELECT id,name,address FROM mail_groups WHERE id=? AND enabled=1").bind(groupId).first<{id:string;name:string;address:string}>();
+ if(!group)return error("Active group mailbox not found.",404);
+ const target=await env.DB.prepare("SELECT id,email_alias,display_name FROM users WHERE id=? AND status='active'").bind(userId).first<{id:string;email_alias:string;display_name:string}>();
+ if(!target)return error("The selected account is unavailable.");
+ const member=await env.DB.prepare("SELECT 1 AS found FROM mail_group_members WHERE group_id=? AND user_id=?").bind(groupId,userId).first();
+ if(member)return error("That account is already a member of this group.");
+ const rawToken=newToken(),tokenHash=await hashToken(rawToken),expires=Math.floor(Date.now()/1000)+7*24*60*60;
+ const inviteId=crypto.randomUUID(),now=new Date().toISOString(),url=new URL("/group-invite/"+rawToken,request.url).toString();
+ await env.DB.prepare("INSERT INTO group_invites (id,token_hash,group_id,invited_user_id,invited_by,expires_at) VALUES (?,?,?,?,?,?)").bind(inviteId,tokenHash,groupId,userId,admin.id,expires).run();
+ const subject="Invitation to join "+group.name;
+ const bodyText="You have been invited by "+admin.display_name+" to join the shared group inbox "+group.name+" ("+group.address+").\n\nTo join, sign in to EducationGames Mail using "+target.email_alias+" and open this invitation link:\n"+url+"\n\nThis invitation expires in 7 days and can only be accepted by the invited account.\n\nEducationGames Mail";
+ await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'inbound','inbox',?,?, '[]',?,?,?,0,?,?)").bind(crypto.randomUUID(),userId,admin.email_alias,JSON.stringify([target.email_alias]),subject,bodyText,crypto.randomUUID(),now,now).run();
+ return json({ok:true,recipient:target.email_alias},201);
+}
+async function getGroupInvite(env:Env,user:AuthUser,token:string):Promise<Response>{
+ const tokenHash=await hashToken(token),row=await env.DB.prepare("SELECT i.id,i.expires_at,i.accepted_at,g.id AS group_id,g.name,g.address,u.email_alias AS invited_email FROM group_invites i JOIN mail_groups g ON g.id=i.group_id JOIN users u ON u.id=i.invited_user_id WHERE i.token_hash=? AND i.invited_user_id=? AND g.enabled=1 AND u.status='active'").bind(tokenHash,user.id).first<any>();
+ if(!row)return error("This invitation is invalid or belongs to another account.",404);
+ if(row.accepted_at)return error("This invitation has already been accepted.",409);
+ if(row.expires_at<Math.floor(Date.now()/1000))return error("This invitation has expired.",410);
+ return json({invite:{group_name:row.name,group_address:row.address,email:row.invited_email}});
+}
+async function acceptGroupInvite(env:Env,user:AuthUser,token:string):Promise<Response>{
+ const tokenHash=await hashToken(token),row=await env.DB.prepare("SELECT i.id,i.group_id,i.expires_at,i.accepted_at FROM group_invites i JOIN mail_groups g ON g.id=i.group_id WHERE i.token_hash=? AND i.invited_user_id=? AND g.enabled=1").bind(tokenHash,user.id).first<any>();
+ if(!row)return error("This invitation is invalid or belongs to another account.",404);
+ if(row.accepted_at)return error("This invitation has already been accepted.",409);
+ if(row.expires_at<Math.floor(Date.now()/1000))return error("This invitation has expired.",410);
+ const now=Math.floor(Date.now()/1000);
+ await env.DB.batch([
+  env.DB.prepare("INSERT OR IGNORE INTO mail_group_members (group_id,user_id) VALUES (?,?)").bind(row.group_id,user.id),
+  env.DB.prepare("UPDATE group_invites SET accepted_at=? WHERE id=? AND accepted_at IS NULL").bind(now,row.id)
+ ]);
+ return json({ok:true});
+}
+export async function groupInviteRoute(request:Request,env:Env,user:AuthUser,token:string,accept:boolean):Promise<Response>{
+ return accept?acceptGroupInvite(env,user,token):getGroupInvite(env,user,token);
 }
