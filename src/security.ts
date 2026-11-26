@@ -108,9 +108,14 @@ export function validStudentUsername(value: string): boolean {
   return /^[a-z0-9][a-z0-9._-]{1,30}$/.test(value);
 }
 
+export const EMAIL_DOMAIN = "commga.com";
+
+export function validCommgaAddress(value: string): boolean {
+  return /^[a-z0-9][a-z0-9._-]{0,30}@commga\\.com$/i.test(value);
+}
+
 export function validSiteAddress(value: string): boolean {
-  return /^[a-z0-9][a-z0-9._-]{1,30}@students\.[a-z0-9][a-z0-9-]{1,19}\.holmes$/.test(value) ||
-    value === "admin@staff.educationgames.holmes";
+  return validCommgaAddress(value);
 }
 
 export function cleanFilename(value: string): string {
