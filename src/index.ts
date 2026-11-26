@@ -1,4 +1,5 @@
 import type {Env} from "./types";
+import {adminRoute} from "./admin";
 import {currentSession,requireAdmin,requireSession,login,logout,bootstrap,createInvite,acceptInvite,getInviteInfo,publicUser,listRememberedAccounts,restoreRememberedAccount,forgetRememberedAccount} from "./auth";
 import {listMessages,getMessage,updateMessage,sendMessage,downloadAttachment} from "./mail";
 import {error,json,validCommgaAddress} from "./security";
@@ -36,5 +37,6 @@ if(path==="/api/messages"&&request.method==="GET"){const session=await requireSe
 if(path==="/api/messages/send"&&request.method==="POST"){const session=await requireSession(request,env);return sendMessage(request,env,session.user);}
 const message=path.match(/^\/api\/messages\/([a-f0-9-]+)$/);if(message&&request.method==="GET"){const session=await requireSession(request,env);return getMessage(env,session.user,message[1]);}if(message&&request.method==="PATCH"){const session=await requireSession(request,env);return updateMessage(request,env,session.user,message[1]);}
 const attachment=path.match(/^\/api\/attachments\/([a-f0-9-]+)$/);if(attachment&&request.method==="GET"){const session=await requireSession(request,env);return downloadAttachment(env,session.user,attachment[1]);}
+if(path.startsWith("/api/admin/"))return adminRoute(request,env,path);
 return error("Not found.",404);}
 export default {async fetch(request:Request,env:Env):Promise<Response>{try{assertSameOrigin(request);if(new URL(request.url).pathname.startsWith("/api/"))return secureHeaders(await route(request,env));return secureHeaders(await env.ASSETS.fetch(request));}catch(e){if(e instanceof Response)return secureHeaders(e);console.error("Unhandled request error",e);return secureHeaders(error("Internal server error.",500));}}};
