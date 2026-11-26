@@ -1,5 +1,5 @@
 import type {Env,AuthUser} from "./types";
-import {cleanFilename,error,json,validEmail} from "./security";
+import {cleanFilename,error,json,validEmail,validCommgaAddress} from "./security";
 const CHUNK_BYTES=128*1024;
 async function resolveInternalRecipients(address:string,env:Env):Promise<Array<{address:string;id:string}>|null>{
  const normalized=address.trim().toLowerCase();if(!validEmail(normalized))return null;
@@ -54,7 +54,7 @@ export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise
   const group=await env.DB.prepare("SELECT g.address FROM mail_groups g JOIN mail_group_members m ON m.group_id=g.id WHERE g.address=? COLLATE NOCASE AND g.enabled=1 AND m.user_id=?").bind(requestedFrom,user.id).first<{address:string}>();
   if(group){fromAddress=group.address;}
   else if(user.role==="admin"){
-   if(!validEmail(requestedFrom)||!requestedFrom.endsWith(".holmes"))return error("Admin sender addresses must be valid internal .holmes addresses.",400);
+   if(!validCommgaAddress(requestedFrom))return error("Admin sender addresses must use @commga.com.",400);
    const account=await env.DB.prepare("SELECT id FROM users WHERE email_alias=? COLLATE NOCASE AND status='active'").bind(requestedFrom).first<{id:string}>();
    if(account&&account.id!==user.id)return error("An administrator cannot send using another account's personal mailbox address.",409);
    const existing=await env.DB.prepare("SELECT reply_to_user_id FROM sender_identities WHERE address=? COLLATE NOCASE AND enabled=1").bind(requestedFrom).first<{reply_to_user_id:string}>();
