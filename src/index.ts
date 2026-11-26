@@ -44,4 +44,15 @@ const message=path.match(/^\/api\/messages\/([a-f0-9-]+)$/);if(message&&request.
 const attachment=path.match(/^\/api\/attachments\/([a-f0-9-]+)$/);if(attachment&&request.method==="GET"){const session=await requireSession(request,env);return downloadAttachment(env,session.user,attachment[1]);}
 if(path.startsWith("/api/admin/"))return adminRoute(request,env,path);
 return error("Not found.",404);}
-export default {async fetch(request:Request,env:Env):Promise<Response>{try{assertSameOrigin(request);if(new URL(request.url).pathname.startsWith("/api/"))return secureHeaders(await route(request,env));return secureHeaders(await env.ASSETS.fetch(request));}catch(e){if(e instanceof Response)return secureHeaders(e);console.error("Unhandled request error",e);return secureHeaders(error("Internal server error.",500));}}};
+export default {
+ async fetch(request:Request,env:Env):Promise<Response>{
+  try{assertSameOrigin(request);if(new URL(request.url).pathname.startsWith("/api/"))return secureHeaders(await route(request,env));return secureHeaders(await env.ASSETS.fetch(request));}
+  catch(e){if(e instanceof Response)return secureHeaders(e);console.error("Unhandled request error",e);return secureHeaders(error("Internal server error.",500));}
+ },
+ async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{
+  ctx.waitUntil(Promise.all([
+   env.DB.prepare("DELETE FROM messages WHERE datetime(COALESCE(sent_at,received_at,created_at)) < datetime('now','-90 days')").run(),
+   env.DB.prepare("DELETE FROM message_reports WHERE datetime(created_at) < datetime('now','-90 days')").run()
+  ]));
+ }
+};
