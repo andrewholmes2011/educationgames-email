@@ -5,6 +5,7 @@
  "compatibility_date":"2026-11-25",
  "upload_source_maps":true,
  "observability":{"enabled":true,"traces":{"enabled":true}},
+ "triggers":{"crons":["17 3 * * *"]},
  "assets":{"directory":"./public","binding":"ASSETS","run_worker_first":["/api/*"],"not_found_handling":"single-page-application"},
  "d1_databases":[{"binding":"DB","database_name":"emails-db","database_id":"d35eff59-f057-4638-922a-750cc808df77","migrations_dir":"migrations"}],
  "vars":{"APP_NAME":"EducationGames Mail","MAX_ATTACHMENT_BYTES":"1048576","SESSION_DAYS":"7","INVITE_DAYS":"7","ALLOW_BOOTSTRAP":"true"}
