@@ -37,8 +37,27 @@ export async function createGroup(request:Request,env:Env,admin:AuthUser):Promis
  for(const member of ids)await env.DB.prepare("INSERT INTO mail_group_members (group_id,user_id) VALUES (?,?)").bind(id,member).run();
  return json({ok:true,id},201);
 }
+export async function removeGroupMember(env:Env,groupId:string,userId:string):Promise<Response>{
+ const group=await env.DB.prepare("SELECT id FROM mail_groups WHERE id=?").bind(groupId).first();
+ if(!group)return error("Group mailbox not found.",404);
+ const member=await env.DB.prepare("SELECT 1 AS found FROM mail_group_members WHERE group_id=? AND user_id=?").bind(groupId,userId).first();
+ if(!member)return error("That account is not a member of this group.",404);
+ const count=await env.DB.prepare("SELECT COUNT(*) AS total FROM mail_group_members WHERE group_id=?").bind(groupId).first<{total:number}>();
+ if((count?.total||0)<=1)return error("A shared inbox must have at least one member. Add another member before removing this one.");
+ await env.DB.batch([
+  env.DB.prepare("DELETE FROM group_invites WHERE group_id=? AND invited_user_id=?").bind(groupId,userId),
+  env.DB.prepare("DELETE FROM mail_group_members WHERE group_id=? AND user_id=?").bind(groupId,userId)
+ ]);
+ return json({ok:true});
+}
 export async function deleteGroup(env:Env,id:string):Promise<Response>{
- await env.DB.prepare("UPDATE mail_groups SET enabled=0 WHERE id=?").bind(id).run();
+ const group=await env.DB.prepare("SELECT id FROM mail_groups WHERE id=?").bind(id).first();
+ if(!group)return error("Group mailbox not found.",404);
+ await env.DB.batch([
+  env.DB.prepare("DELETE FROM group_invites WHERE group_id=?").bind(id),
+  env.DB.prepare("DELETE FROM mail_group_members WHERE group_id=?").bind(id),
+  env.DB.prepare("DELETE FROM mail_groups WHERE id=?").bind(id)
+ ]);
  return json({ok:true});
 }
 export async function inviteToGroup(request:Request,env:Env,admin:AuthUser,groupId:string):Promise<Response>{
