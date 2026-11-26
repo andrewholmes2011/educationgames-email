@@ -10,7 +10,7 @@ export function sanitizeNewsletterHtml(input:string):string{
  html=html.replace(/<([a-z0-9]+)\b([^>]*)>/gi,(whole,tag:string,attrs:string)=>{
   const t=tag.toLowerCase();if(t==="font"){const match=attrs.match(/color=([^\s>]+)/i),color=(match?.[1]||"").replace(/["']/g,"");return /^#[0-9a-f]{6}$/i.test(color)?'<font color="'+color+'">':"<font>";}if(!["a","img"].includes(t))return "<"+t+">";
   const read=(name:string)=>{const match=attrs.match(new RegExp("\\b"+name+"\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))","i"));return match?(match[1]??match[2]??match[3]??""):"";};
-  if(t==="a"){const href=read("href").trim();if(href.startsWith("//")||!(/^(https:\/\/|http:\/\/|mailto:|\/)/i.test(href)))return "<a>";return '<a href="'+escapeHtml(href)+'" target="_blank" rel="noopener noreferrer">';}
+  if(t==="a"){const href=read("href").trim();if(href.startsWith("//")||!(/^(https:\/\/|http:\/\/|mailto:|\/)/i.test(href)))return "<a>";const cta=/email-cta/i.test(read("class"));return '<a'+(cta?' class="email-cta"':'')+' href="'+escapeHtml(href)+'" target="_blank" rel="noopener noreferrer">';}
   const src=read("src").trim();if(!/^https:\/\//i.test(src))return "";const alt=read("alt");return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" loading="lazy">';
  });
  html=html.replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi,"");
