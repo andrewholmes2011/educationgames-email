@@ -3,3 +3,81 @@
 
 .message-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.message-panel{max-width:900px;margin:0 auto;padding:30px}.message-subject{padding-bottom:20px;border-bottom:1px solid var(--line)}.message-subject h2{font-size:22px;line-height:1.35;overflow-wrap:anywhere}.message-meta{margin:20px 0 24px}.message-panel .body{min-height:100px}.attachment-section{border-top:1px solid var(--line);padding-top:16px}.attachment-section h3{font-size:13px;color:var(--muted)}.message-actions{border-top:1px solid var(--line);padding-top:16px;margin-top:18px}@media(max-width:600px){.message-toolbar{align-items:stretch;flex-direction:column}.message-panel{padding:18px}.message-subject h2{font-size:19px}}
 .admin-sender-note{margin:-8px 0 18px;padding:10px 13px;border:1px solid var(--line);border-radius:9px;font-size:12px;line-height:1.6;background:#0d1729}
+
+/* Gmail-inspired compact layout */
+:root{
+  color-scheme:light;
+  font-family:Arial,Helvetica,sans-serif;
+  background:#f6f8fc;
+  color:#202124;
+  --panel:#fff;
+  --line:#e3e7ee;
+  --muted:#5f6368;
+  --accent:#0b57d0;
+}
+body{background:#f6f8fc;color:#202124}
+.sidebar{background:#f6f8fc;border-right:1px solid #e8eaed;padding:18px 12px;gap:16px}
+.smallbrand .logo,.logo{background:#0b57d0;color:#fff;border-radius:12px}
+.brand h1,.smallbrand b{color:#202124}
+.brand p,.brand small,.sidebar .account small{color:#5f6368}
+.sidebar nav button{color:#3c4043;padding:10px 16px;border-radius:0 22px 22px 0;font-size:14px}
+.sidebar nav button.active,.sidebar nav button:hover{background:#d3e3fd;color:#0842a0}
+.sidebar .primary,.primary{background:#c2e7ff;color:#001d35;border-radius:16px;padding:12px 20px;box-shadow:0 1px 2px #00000018}
+.secondary{background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:18px;padding:8px 14px}
+.main header{height:64px;border:0;padding:0 24px;background:#f6f8fc}
+.main header h2{font-size:18px;font-weight:500;color:#202124}
+.main header input{max-width:560px;background:#eaf1fb;border:1px solid transparent;border-radius:24px;color:#202124;padding:12px 18px}
+.main header input:focus{background:#fff;border-color:#d2e3fc;box-shadow:0 1px 3px #00000018}
+.content{max-width:1240px;padding:12px 22px 24px}
+.notice,.success{border-radius:8px;background:#fff8e1;border:1px solid #f3e2a8;color:#5f4b00;padding:10px 14px}
+.rows{margin-top:10px;border:0;border-radius:10px;background:#fff;box-shadow:0 1px 2px #00000012}
+.row{min-height:52px;grid-template-columns:minmax(150px,210px) minmax(0,1fr) 92px;gap:12px;padding:10px 18px;background:#fff;color:#202124;border-bottom:1px solid #edf0f4}
+.row:hover{box-shadow:inset 0 0 0 1px #dadce0;background:#f8fafd}
+.row.unread{background:#fff;font-weight:700}
+.row.unread strong,.row.unread>b{color:#202124}
+.row>b,.row strong{font-size:13px;color:#3c4043}
+.row small,.row time{font-size:12px;color:#5f6368}
+.row span{display:flex;align-items:center;gap:12px;min-width:0}
+.row strong{white-space:nowrap;flex:0 0 auto}
+.row small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.panel{background:#fff;border:1px solid #e8eaed;border-radius:10px;box-shadow:0 1px 2px #0000000d;color:#202124}
+.panel h2,.panel h3{color:#202124}
+.panel .body{font-size:14px;line-height:1.6;color:#202124;padding:4px 0 14px}
+.compose-panel{max-width:720px;padding:20px 24px;margin:0}
+.compose-heading{padding-bottom:12px}
+.compose-heading h2{font-size:18px;font-weight:500}
+.compose-panel label{margin:10px 0;gap:5px;color:#5f6368;font-size:12px}
+input,textarea,select{background:#fff;color:#202124;border:1px solid #dadce0;border-radius:5px;padding:9px 11px}
+textarea{min-height:120px}
+.compose-panel textarea{min-height:150px;line-height:1.55;font-size:14px;padding:11px}
+.compose-actions{margin-top:12px}
+.compose-actions .primary{min-width:110px}
+.message-panel{max-width:780px;padding:22px 26px;margin:0}
+.message-subject{padding-bottom:12px}
+.message-subject h2{font-size:20px;font-weight:400;line-height:1.35;color:#202124}
+.message-meta{margin:14px 0 18px;display:grid;gap:7px;font-size:13px;color:#5f6368}
+.message-meta>div{display:flex;gap:8px;flex-wrap:wrap}
+.message-meta b{min-width:42px;color:#5f6368;font-weight:600}
+.message-meta span{color:#202124;overflow-wrap:anywhere}
+.message-panel .body{min-height:40px}
+.message-toolbar{margin-bottom:10px}
+.message-actions,.attachment-section{border-color:#e8eaed}
+.attachments a{color:#0b57d0}
+.admin-sender-note{background:#f8fafd;color:#5f6368;border-color:#e8eaed}
+.account{border-color:#e8eaed;color:#3c4043}
+.eyebrow{color:#5f6368;letter-spacing:.08em}
+.muted,.foot{color:#5f6368}
+.error{color:#b3261e}
+table{color:#202124}
+td,th{border-color:#e8eaed}
+#toast{background:#202124;color:#fff}
+@media(max-width:760px){
+  .sidebar{border-right:0;border-bottom:1px solid #e8eaed}
+  .main header{padding:0 14px}
+  .content{padding:10px}
+  .row{grid-template-columns:minmax(0,1fr) auto;padding:10px 12px}
+  .row span{display:grid;gap:3px}
+  .row strong{white-space:normal}
+  .row small{white-space:nowrap}
+  .compose-panel,.message-panel{padding:16px}
+}
