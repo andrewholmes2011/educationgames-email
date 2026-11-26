@@ -94,7 +94,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
 }
 
 export function validEmail(value: string): boolean {
-  return value.length <= 254 && /^[A-Z0-9.!#$%&'*+/=?^`{|}~-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$/i.test(value);
+  return value.length <= 254 && /^[A-Z0-9.!#$%&'*+/=?^`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value);
 }
 
 export function validDistrictCode(value: string): boolean {
@@ -106,7 +106,7 @@ export function validStudentUsername(value: string): boolean {
 }
 
 export function validSiteAddress(value: string): boolean {
-  return /^[a-z0-9][a-z0-9._-]{1,30}@students\\.[a-z0-9][a-z0-9-]{1,19}\\.holmes$/.test(value) ||
+  return /^[a-z0-9][a-z0-9._-]{1,30}@students\.[a-z0-9][a-z0-9-]{1,19}\.holmes$/.test(value) ||
     value === "admin@staff.educationgames.holmes";
 }
 
