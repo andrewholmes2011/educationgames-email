@@ -1,7 +1,7 @@
 import type {Env} from "./types";
 import {currentSession,requireAdmin,requireSession,login,logout,bootstrap,createInvite,acceptInvite,getInviteInfo,publicUser,listRememberedAccounts,restoreRememberedAccount,forgetRememberedAccount} from "./auth";
 import {listMessages,getMessage,updateMessage,sendMessage,downloadAttachment} from "./mail";
-import {error,json} from "./security";
+import {error,json,validCommgaAddress} from "./security";
 import {listGroups,adminGroups,createGroup,deleteGroup,inviteToGroup,groupInviteRoute} from "./lists-groups";
 function secureHeaders(response:Response):Response{const headers=new Headers(response.headers);headers.set("x-content-type-options","nosniff");headers.set("referrer-policy","strict-origin-when-cross-origin");headers.set("x-frame-options","DENY");headers.set("permissions-policy","camera=(),microphone=(),geolocation=()");headers.set("content-security-policy","default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
 function assertSameOrigin(request:Request):void{if(["GET","HEAD","OPTIONS"].includes(request.method))return;const origin=request.headers.get("origin");if(!origin)return;if(origin!==new URL(request.url).origin)throw new Response(JSON.stringify({error:"Cross-origin request rejected."}),{status:403,headers:{"content-type":"application/json"}});}
