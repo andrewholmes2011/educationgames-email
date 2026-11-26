@@ -42,7 +42,7 @@ async function storeAttachment(env:Env,ownerId:string,messageId:string,file:Stor
 }
 export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise<Response>{
  const form=await request.formData(),toRaw=String(form.get("to")||""),ccRaw=String(form.get("cc")||""),subject=String(form.get("subject")||"").trim().slice(0,998),textBody=String(form.get("text")||"").slice(0,100000);
- const recipients=toRaw.split(/[ ,\\n;]+/).map(v=>v.trim()).filter(Boolean),cc=ccRaw.split(/[ ,\\n;]+/).map(v=>v.trim()).filter(Boolean);
+ const recipients=toRaw.split(/[,\s;]+/).map(v=>v.trim()).filter(Boolean),cc=ccRaw.split(/[,\s;]+/).map(v=>v.trim()).filter(Boolean);
  if(!recipients.length||recipients.length>20||cc.length>20)return error("Provide 1–20 To recipients and no more than 20 CC recipients.");
  if(![...recipients,...cc].every(validEmail))return error("One or more recipient email addresses are invalid.");
  if(!subject)return error("Subject is required.");if(!textBody.trim())return error("Message body is required.");
