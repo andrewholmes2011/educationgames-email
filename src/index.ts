@@ -1,5 +1,5 @@
 import type {Env} from "./types";
-import {currentSession,requireAdmin,requireSession,login,logout,bootstrap,createInvite,acceptInvite,getInviteInfo,publicUser} from "./auth";
+import {currentSession,requireAdmin,requireSession,login,logout,bootstrap,createInvite,acceptInvite,getInviteInfo,publicUser,listRememberedAccounts,restoreRememberedAccount,forgetRememberedAccount} from "./auth";
 import {listMessages,getMessage,updateMessage,sendMessage,downloadAttachment} from "./mail";
 import {error,json} from "./security";
 import {listGroups,adminGroups,createGroup,deleteGroup,inviteToGroup,groupInviteRoute} from "./lists-groups";
@@ -11,6 +11,9 @@ if(path==="/api/districts"&&request.method==="GET"){const districts=await env.DB
 if(path==="/api/bootstrap/status"&&request.method==="GET"){const row=await env.DB.prepare("SELECT COUNT(*) AS count FROM users").first<{count:number}>();return json({needed:(row?.count||0)===0&&env.ALLOW_BOOTSTRAP==="true"});}
 if(path==="/api/bootstrap"&&request.method==="POST")return bootstrap(request,env);
 if(path==="/api/auth/login"&&request.method==="POST")return login(request,env);
+if(path==="/api/auth/saved"&&request.method==="GET")return listRememberedAccounts(request,env);
+if(path==="/api/auth/restore"&&request.method==="POST")return restoreRememberedAccount(request,env);
+const savedAccount=path.match(/^\/api\/auth\/saved\/([a-f0-9-]{36})$/);if(savedAccount&&request.method==="DELETE")return forgetRememberedAccount(request,env,savedAccount[1]);
 if(path==="/api/auth/logout"&&request.method==="POST")return logout(request,env);
 const inviteInfo=path.match(/^\/api\/invites\/([a-f0-9]+)$/);if(inviteInfo&&request.method==="GET")return getInviteInfo(env,inviteInfo[1]);
 const inviteAccept=path.match(/^\/api\/invites\/([a-f0-9]+)\/accept$/);if(inviteAccept&&request.method==="POST")return acceptInvite(request,env,inviteAccept[1]);
