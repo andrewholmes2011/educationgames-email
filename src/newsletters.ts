@@ -42,6 +42,7 @@ export async function sendNewsletter(request:Request,env:Env,admin:AuthUser):Pro
  for(const user of recipients){
   const token=randomToken(32),tokenHash=await sha256(token);
   await env.DB.prepare("INSERT INTO newsletter_preferences(user_id,token_hash,unsubscribed_at) VALUES(?,?,NULL) ON CONFLICT(user_id) DO UPDATE SET token_hash=excluded.token_hash,updated_at=datetime('now')").bind(user.id,tokenHash).run();
+  await env.DB.prepare("INSERT INTO newsletter_unsubscribe_tokens(token_hash,user_id) VALUES(?,?)").bind(tokenHash,user.id).run();
   const unsubscribe=origin+"/unsubscribe/"+token;
   const footer='<div class="newsletter-footer">You are receiving this EducationGames Mail newsletter. <a href="'+unsubscribe+'">Unsubscribe</a></div>';
   const full='<div class="newsletter-mail-shell">'+html+footer+'</div>';
@@ -51,13 +52,13 @@ export async function sendNewsletter(request:Request,env:Env,admin:AuthUser):Pro
  return json({ok:true,campaign_id:campaignId,delivered},201);
 }
 export async function unsubscribeInfo(env:Env,token:string):Promise<Response>{
- const hash=await sha256(token),row=await env.DB.prepare("SELECT u.email_alias,p.unsubscribed_at FROM newsletter_preferences p JOIN users u ON u.id=p.user_id WHERE p.token_hash=?").bind(hash).first<{email_alias:string;unsubscribed_at:string|null}>();
+ const hash=await sha256(token),row=await env.DB.prepare("SELECT u.email_alias,p.unsubscribed_at FROM newsletter_unsubscribe_tokens t JOIN newsletter_preferences p ON p.user_id=t.user_id JOIN users u ON u.id=p.user_id WHERE t.token_hash=?").bind(hash).first<{email_alias:string;unsubscribed_at:string|null}>();
  if(!row)return error("This unsubscribe link is invalid or expired.",404);
  return json({email:row.email_alias,unsubscribed:!!row.unsubscribed_at});
 }
 export async function unsubscribe(request:Request,env:Env,token:string):Promise<Response>{
- const hash=await sha256(token),row=await env.DB.prepare("SELECT user_id FROM newsletter_preferences WHERE token_hash=?").bind(hash).first<{user_id:string}>();
+ const hash=await sha256(token),row=await env.DB.prepare("SELECT user_id FROM newsletter_unsubscribe_tokens WHERE token_hash=?").bind(hash).first<{user_id:string}>();
  if(!row)return error("This unsubscribe link is invalid or expired.",404);
- await env.DB.prepare("UPDATE newsletter_preferences SET unsubscribed_at=datetime('now'),updated_at=datetime('now') WHERE token_hash=?").bind(hash).run();
+ await env.DB.prepare("UPDATE newsletter_preferences SET unsubscribed_at=datetime('now'),updated_at=datetime('now') WHERE user_id=?").bind(row.user_id).run();
  return json({ok:true});
 }
