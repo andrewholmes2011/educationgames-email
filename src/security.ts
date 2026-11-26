@@ -114,7 +114,7 @@ export function validSiteAddress(value: string): boolean {
 }
 
 export function cleanFilename(value: string): string {
-  return value.replace(/[\\\\/\\u0000-\\u001f\\u007f]/g, "_").slice(0, 150) || "attachment";
+  return value.replace(/[\\/\u0000-\u001f\u007f]/g, "_").slice(0, 150) || "attachment";
 }
 
 export function json(data: unknown, status = 200, headers: HeadersInit = {}): Response {
