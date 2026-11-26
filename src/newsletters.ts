@@ -6,9 +6,9 @@ export function sanitizeNewsletterHtml(input:string):string{
  let html=String(input||"").slice(0,60000);
  html=html.replace(/<!--[\s\S]*?-->/g,"").replace(/<(script|style|iframe|object|embed|form|input|button|svg|math|video|audio)[^>]*>[\s\S]*?<\/\1\s*>/gi,"");
  html=html.replace(/<(script|style|iframe|object|embed|form|input|button|svg|math|video|audio)\b[^>]*\/?>/gi,"");
- html=html.replace(/<(?!\/?(?:p|h1|h2|h3|h4|strong|b|em|i|u|s|ul|ol|li|blockquote|hr|br|div|span|a|img)\b)[^>]*>/gi,"");
+ html=html.replace(/<(?!\/?(?:p|h1|h2|h3|h4|strong|b|em|i|u|s|ul|ol|li|blockquote|hr|br|div|span|font|a|img)\b)[^>]*>/gi,"");
  html=html.replace(/<([a-z0-9]+)\b([^>]*)>/gi,(whole,tag:string,attrs:string)=>{
-  const t=tag.toLowerCase();if(!["a","img"].includes(t))return "<"+t+">";
+  const t=tag.toLowerCase();if(t==="font"){const match=attrs.match(/color=([^\\s>]+)/i),color=(match?.[1]||"").replace(/["']/g,"");return /^#[0-9a-f]{6}$/i.test(color)?'<font color="'+color+'">':"<font>";}if(!["a","img"].includes(t))return "<"+t+">";
   const read=(name:string)=>{const match=attrs.match(new RegExp("\\b"+name+"\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))","i"));return match?(match[1]??match[2]??match[3]??""):"";};
   if(t==="a"){const href=read("href").trim();if(!/^(https:\/\/|http:\/\/|mailto:|\/)/i.test(href))return "<a>";return '<a href="'+escapeHtml(href)+'" target="_blank" rel="noopener noreferrer">';}
   const src=read("src").trim();if(!/^https:\/\//i.test(src))return "";const alt=read("alt");return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" loading="lazy">';
