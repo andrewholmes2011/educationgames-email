@@ -31,5 +31,28 @@ export async function adminRoute(request:Request,env:Env,path:string):Promise<Re
  const invite=path.match(/^\/api\/admin\/invites\/([a-f0-9]+)$/i);if(invite&&method==="DELETE"){const r=await env.DB.prepare("DELETE FROM invites WHERE lower(hex(token_hash))=? AND used_at IS NULL").bind(invite[1].toLowerCase()).run();return (r.meta.changes||0)?json({ok:true}):error("Unused invitation not found.",404);}
  const sender=path.match(/^\/api\/admin\/senders\/([a-f0-9-]{36})$/i);if(sender&&method==="PATCH"){const b=await bodyOf(request);if(!b)return error("Invalid JSON.");const address=String(b.address||"").trim().toLowerCase(),name=String(b.display_name||"").trim().slice(0,80),reply=String(b.reply_to_user_id||"");if(!validCommgaAddress(address)||!name)return error("Enter a valid sender address and display name.");if(!await env.DB.prepare("SELECT id FROM users WHERE id=? AND status='active'").bind(reply).first())return error("Choose an active reply mailbox.");try{await env.DB.prepare("UPDATE sender_identities SET address=?,display_name=?,reply_to_user_id=?,enabled=? WHERE id=?").bind(address,name,reply,b.enabled===false?0:1,sender[1]).run();}catch{return error("That sender address is already in use.",409);}return json({ok:true});}
  const group=path.match(/^\/api\/admin\/groups\/([a-f0-9-]{36})$/i);if(group&&method==="PATCH"){const b=await bodyOf(request);if(!b)return error("Invalid JSON.");const name=String(b.name||"").trim().slice(0,80),address=String(b.address||"").trim().toLowerCase(),ids=Array.isArray(b.member_ids)?[...new Set(b.member_ids.filter((x:any)=>typeof x==="string"))]:null;if(!name||!validCommgaAddress(address))return error("Enter a group name and valid @commga.com address.");const conflict=await env.DB.prepare("SELECT email_alias AS address FROM users WHERE email_alias=? COLLATE NOCASE UNION SELECT address FROM sender_identities WHERE address=? COLLATE NOCASE").bind(address,address).first();if(conflict)return error("That address is already used by an account or sender identity.",409);if(ids){if(!ids.length||ids.length>100)return error("A group must have 1–100 members.");const valid=await env.DB.prepare("SELECT id FROM users WHERE status='active' AND id IN ("+ids.map(()=>"?").join(",")+")").bind(...ids).all();if((valid.results||[]).length!==ids.length)return error("One or more selected accounts are unavailable.");}try{await env.DB.prepare("UPDATE mail_groups SET name=?,address=?,enabled=? WHERE id=?").bind(name,address,b.enabled===false?0:1,group[1]).run();if(ids){await env.DB.prepare("DELETE FROM group_invites WHERE group_id=?").bind(group[1]).run();await env.DB.prepare("DELETE FROM mail_group_members WHERE group_id=?").bind(group[1]).run();for(const uid of ids)await env.DB.prepare("INSERT INTO mail_group_members(group_id,user_id) VALUES(?,?)").bind(group[1],uid).run();}}catch{return error("That group address is already in use, or the group could not be updated.",409);}return json({ok:true});}
+
+ if(path==="/api/admin/messages"&&method==="GET"){
+  const limit=Math.min(250,Math.max(1,Number(new URL(request.url).searchParams.get("limit")||100)));
+  const rows=await env.DB.prepare("SELECT m.id,m.owner_id,u.display_name AS owner_name,u.email_alias AS owner_email,m.direction,m.folder,m.from_address,m.to_addresses,m.subject,substr(m.text_body,1,240) AS preview,m.sent_at,m.received_at FROM messages m JOIN users u ON u.id=m.owner_id WHERE datetime(COALESCE(m.sent_at,m.received_at,m.created_at))>=datetime('now','-90 days') ORDER BY COALESCE(m.sent_at,m.received_at) DESC LIMIT ?").bind(limit).all();
+  return json({messages:rows.results||[]});
+ }
+ const adminMessage=path.match(/^\\/api\\/admin\\/messages\\/([a-f0-9-]+)$/);
+ if(adminMessage&&method==="GET"){
+  const row=await env.DB.prepare("SELECT m.*,u.display_name AS owner_name,u.email_alias AS owner_email FROM messages m JOIN users u ON u.id=m.owner_id WHERE m.id=? AND datetime(COALESCE(m.sent_at,m.received_at,m.created_at))>=datetime('now','-90 days')").bind(adminMessage[1]).first();
+  return row?json({message:row}):error("Message not found.",404);
+ }
+ if(path==="/api/admin/reports"&&method==="GET"){
+  const rows=await env.DB.prepare("SELECT id,message_id,reporter_email,message_from,message_to,message_subject,message_text,message_html,reason,details,status,created_at FROM message_reports WHERE datetime(created_at)>=datetime('now','-90 days') ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END,created_at DESC LIMIT 250").all();
+  return json({reports:rows.results||[]});
+ }
+ const report=path.match(/^\\/api\\/admin\\/reports\\/([a-f0-9-]+)$/);
+ if(report&&method==="PATCH"){
+  const b=await bodyOf(request);if(!b)return error("Invalid JSON.");
+  if(!["open","reviewed","dismissed"].includes(String(b.status||"")))return error("Choose a valid report status.");
+  const r=await env.DB.prepare("UPDATE message_reports SET status=? WHERE id=?").bind(b.status,report[1]).run();
+  return r.meta.changes?json({ok:true}):error("Report not found.",404);
+ }
+
  return error("Not found.",404);
 }
