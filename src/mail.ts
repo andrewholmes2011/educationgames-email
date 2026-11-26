@@ -44,7 +44,21 @@ async function storeAttachment(env:Env,ownerId:string,messageId:string,file:Stor
 export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise<Response>{
  const form=await request.formData(),toRaw=String(form.get("to")||""),ccRaw=String(form.get("cc")||""),requestedFrom=String(form.get("from")||"").trim().toLowerCase(),subject=String(form.get("subject")||"").trim().slice(0,998),textBody=String(form.get("text")||"").slice(0,100000);
  let fromAddress=user.email_alias;
- if(requestedFrom&&requestedFrom!==user.email_alias){const identity=await env.DB.prepare("SELECT address FROM sender_identities WHERE address=? COLLATE NOCASE AND enabled=1").bind(requestedFrom).first<{address:string}>();if(!identity)return error("That sender identity is not available.",403);fromAddress=identity.address;}
+ if(requestedFrom&&requestedFrom!==user.email_alias){
+  if(user.role==="admin"){
+   if(!validEmail(requestedFrom)||!requestedFrom.endsWith(".holmes"))return error("Admin sender addresses must be valid internal .holmes addresses.",400);
+   const account=await env.DB.prepare("SELECT id FROM users WHERE email_alias=? COLLATE NOCASE AND status='active'").bind(requestedFrom).first<{id:string}>();
+   if(account&&account.id!==user.id)return error("An administrator cannot send using another account's personal mailbox address.",409);
+   const existing=await env.DB.prepare("SELECT reply_to_user_id FROM sender_identities WHERE address=? COLLATE NOCASE AND enabled=1").bind(requestedFrom).first<{reply_to_user_id:string}>();
+   if(existing&&existing.reply_to_user_id!==user.id)return error("That sender address is already assigned to a different reply mailbox.",409);
+   if(!existing)await env.DB.prepare("INSERT INTO sender_identities (id,address,display_name,reply_to_user_id,created_by) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),requestedFrom,"Administrator sender",user.id,user.id).run();
+   fromAddress=requestedFrom;
+  }else{
+   const identity=await env.DB.prepare("SELECT address FROM sender_identities WHERE address=? COLLATE NOCASE AND enabled=1").bind(requestedFrom).first<{address:string}>();
+   if(!identity)return error("That sender identity is not available.",403);
+   fromAddress=identity.address;
+  }
+ }
  const recipients=toRaw.split(/[,\s;]+/).map(v=>v.trim()).filter(Boolean),cc=ccRaw.split(/[,\s;]+/).map(v=>v.trim()).filter(Boolean);
  if(!recipients.length||recipients.length>20||cc.length>20)return error("Provide 1–20 To recipients and no more than 20 CC recipients.");
  if(![...recipients,...cc].every(validEmail))return error("One or more recipient email addresses are invalid.");
