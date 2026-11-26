@@ -1,5 +1,6 @@
 import type {Env,AuthUser} from "./types";
 import {error,json,validCommgaAddress} from "./security";
+function escapeHtml(value:string):string{return value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
 async function hashToken(token:string):Promise<string>{
  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token));
@@ -74,7 +75,7 @@ export async function inviteToGroup(request:Request,env:Env,admin:AuthUser,group
  await env.DB.prepare("INSERT INTO group_invites (id,token_hash,group_id,invited_user_id,invited_by,expires_at) VALUES (?,?,?,?,?,?)").bind(inviteId,tokenHash,groupId,userId,admin.id,expires).run();
  const subject="Invitation to join "+group.name;
  const bodyText="You have been invited by "+admin.display_name+" to join the shared group inbox "+group.name+" ("+group.address+").\\n\\nAccept invitation: "+url+"\\n\\nIf the button does not work, copy and paste this link into your browser:\\n"+url+"\\n\\nThis invitation expires in 7 days and can only be accepted by the invited account.\\n\\nEducationGames Mail";
- const esc=(v:string)=>v.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c]!));
+ const esc=escapeHtml","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c]!));
  const bodyHtml='<div class="invite-email"><p>Hello '+esc(target.display_name)+',</p><p>You have been invited to join <strong>'+esc(group.name)+'</strong> ('+esc(group.address)+').</p><p><a class="email-cta" href="'+url+'">Accept invitation</a></p><p>If the button does not work, copy and paste this link into your browser:</p><p><a href="'+url+'">'+url+'</a></p><p>This invitation expires in 7 days and can only be accepted by the invited account.</p><p>EducationGames Mail</p></div>';
  await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,html_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'inbound','inbox',?,?, '[]',?,?,?,?,0,?,?)").bind(crypto.randomUUID(),userId,admin.email_alias,JSON.stringify([target.email_alias]),subject,bodyText,bodyHtml,crypto.randomUUID(),now,now).run();
  return json({ok:true,recipient:target.email_alias},201);
