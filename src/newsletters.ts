@@ -43,12 +43,9 @@ export async function sendNewsletter(request:Request,env:Env,admin:AuthUser):Pro
   const token=randomToken(32),tokenHash=await sha256(token);
   await env.DB.prepare("INSERT INTO newsletter_preferences(user_id,token_hash,unsubscribed_at) VALUES(?,?,NULL) ON CONFLICT(user_id) DO UPDATE SET token_hash=excluded.token_hash,updated_at=datetime('now')").bind(user.id,tokenHash).run();
   const unsubscribe=origin+"/unsubscribe/"+token;
-  const footer='<div style="border-top:1px solid #dbe4ef;margin-top:28px;padding-top:16px;color:#64748b;font:12px Arial,sans-serif">You are receiving this EducationGames Mail newsletter. <a href="'+unsubscribe+'" style="color:#2563eb">Unsubscribe</a></div>';
-  const full='<div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#18263b;line-height:1.65">'+html+footer+'</div>';
-  await env.DB.prepare("INSERT INTO messages(id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,html_body,message_id,is_read,sent_at,received_at) VALUES(?,?,'inbound','inbox',?,'[]','[]',?,?,?,?,0,?,?)").bind(crypto.randomUUID(),user.id,admin.email_alias,subject,plain+"\n\nUnsubscribe: "+unsubscribe,campaignId,crypto.randomUUID(),now,now).run();
-  // Store the rich HTML separately on the delivered message.
-  const msg=await env.DB.prepare("SELECT id FROM messages WHERE owner_id=? AND message_id=?").bind(user.id,campaignId).first<{id:string}>();
-  if(msg)await env.DB.prepare("UPDATE messages SET html_body=? WHERE id=?").bind(full,msg.id).run();
+  const footer='<div class="newsletter-footer">You are receiving this EducationGames Mail newsletter. <a href="'+unsubscribe+'">Unsubscribe</a></div>';
+  const full='<div class="newsletter-mail-shell">'+html+footer+'</div>';
+  await env.DB.prepare("INSERT INTO messages(id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,html_body,message_id,is_read,sent_at,received_at) VALUES(?,?,'inbound','inbox',?,'[]','[]',?,?,?,?,0,?,?)").bind(crypto.randomUUID(),user.id,admin.email_alias,subject,plain+"\\n\\nUnsubscribe: "+unsubscribe,full,campaignId,now,now).run();
   delivered++;
  }
  return json({ok:true,campaign_id:campaignId,delivered},201);
