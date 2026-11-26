@@ -1,10 +1,11 @@
 import type {Env,AuthUser} from "./types";
-import {cleanFilename,error,json,validEmail,validSiteAddress} from "./security";
+import {cleanFilename,error,json,validEmail} from "./security";
 const CHUNK_BYTES=128*1024;
-async function resolveInternalAddress(address:string,env:Env):Promise<string|null>{
- const normalized=address.trim().toLowerCase();if(!validSiteAddress(normalized))return null;
- const exists=await env.DB.prepare("SELECT email_alias FROM users WHERE email_alias=? COLLATE NOCASE AND status='active'").bind(normalized).first<{email_alias:string}>();
- return exists?.email_alias||null;
+async function resolveInternalRecipient(address:string,env:Env):Promise<{address:string;id:string}|null>{
+ const normalized=address.trim().toLowerCase();if(!validEmail(normalized))return null;
+ const user=await env.DB.prepare("SELECT id,email_alias AS address FROM users WHERE email_alias=? COLLATE NOCASE AND status='active'").bind(normalized).first<{id:string;address:string}>();
+ if(user)return user;
+ return await env.DB.prepare("SELECT u.id,u.email_alias AS address FROM sender_identities s JOIN users u ON u.id=s.reply_to_user_id WHERE s.address=? COLLATE NOCASE AND s.enabled=1 AND u.status='active'").bind(normalized).first<{id:string;address:string}>();
 }
 export async function listMessages(request:Request,env:Env,user:AuthUser):Promise<Response>{
  const url=new URL(request.url),folder=url.searchParams.get("folder")||"inbox",allowed=["inbox","sent","drafts","trash","archive"];
@@ -41,18 +42,18 @@ async function storeAttachment(env:Env,ownerId:string,messageId:string,file:Stor
  }
 }
 export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise<Response>{
- const form=await request.formData(),toRaw=String(form.get("to")||""),ccRaw=String(form.get("cc")||""),subject=String(form.get("subject")||"").trim().slice(0,998),textBody=String(form.get("text")||"").slice(0,100000);
+ const form=await request.formData(),toRaw=String(form.get("to")||""),ccRaw=String(form.get("cc")||""),requestedFrom=String(form.get("from")||"").trim().toLowerCase(),subject=String(form.get("subject")||"").trim().slice(0,998),textBody=String(form.get("text")||"").slice(0,100000);
+ let fromAddress=user.email_alias;
+ if(requestedFrom&&requestedFrom!==user.email_alias){const identity=await env.DB.prepare("SELECT address FROM sender_identities WHERE address=? COLLATE NOCASE AND enabled=1").bind(requestedFrom).first<{address:string}>();if(!identity)return error("That sender identity is not available.",403);fromAddress=identity.address;}
  const recipients=toRaw.split(/[,\s;]+/).map(v=>v.trim()).filter(Boolean),cc=ccRaw.split(/[,\s;]+/).map(v=>v.trim()).filter(Boolean);
  if(!recipients.length||recipients.length>20||cc.length>20)return error("Provide 1–20 To recipients and no more than 20 CC recipients.");
  if(![...recipients,...cc].every(validEmail))return error("One or more recipient email addresses are invalid.");
  if(!subject)return error("Subject is required.");if(!textBody.trim())return error("Message body is required.");
  const internalRecipients:Array<{address:string;id:string}>=[];
  for(const address of [...recipients,...cc]){
-  const internal=await resolveInternalAddress(address,env);
-  if(!internal)return error("Only active EducationGames Mail addresses are allowed. Unknown or external address: "+address,403);
-  const target=await env.DB.prepare("SELECT id FROM users WHERE email_alias=? COLLATE NOCASE AND status='active'").bind(internal).first<{id:string}>();
-  if(!target)return error("Mailbox "+address+" does not exist.",404);
-  if(target.id!==user.id&&!internalRecipients.some(r=>r.id===target.id))internalRecipients.push({address:internal,id:target.id});
+  const target=await resolveInternalRecipient(address,env);
+  if(!target)return error("Only active EducationGames Mail addresses and approved sender identities are allowed. Unknown or external address: "+address,403);
+  if(target.id!==user.id&&!internalRecipients.some(r=>r.id===target.id))internalRecipients.push({address:address.toLowerCase(),id:target.id});
  }
  const maxBytes=Math.min(1024*1024,Math.max(1024,Number(env.MAX_ATTACHMENT_BYTES||1048576))),stored:StoredAttachment[]=[];let total=0;
  for(const value of form.getAll("attachments")){
@@ -62,11 +63,11 @@ export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise
   stored.push({id:crypto.randomUUID(),filename:cleanFilename(value.name),type:value.type||"application/octet-stream",size:value.size,bytes:new Uint8Array(await value.arrayBuffer())});
  }
  const sentAt=new Date().toISOString(),messageId=crypto.randomUUID(),sentRowId=crypto.randomUUID();
- await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'outbound','sent',?,?,?,?,?,?,1,?,?)").bind(sentRowId,user.id,user.email_alias,JSON.stringify(recipients),JSON.stringify(cc),subject,textBody,messageId,sentAt,sentAt).run();
+ await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'outbound','sent',?,?,?,?,?,?,1,?,?)").bind(sentRowId,user.id,fromAddress,JSON.stringify(recipients),JSON.stringify(cc),subject,textBody,messageId,sentAt,sentAt).run();
  for(const file of stored)await storeAttachment(env,user.id,sentRowId,file);
  for(const recipient of internalRecipients){
   const inboxId=crypto.randomUUID();
-  await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'inbound','inbox',?,?,?,?,?,?,0,?,?)").bind(inboxId,recipient.id,user.email_alias,JSON.stringify([recipient.address]),JSON.stringify(cc),subject,textBody,messageId,sentAt,sentAt).run();
+  await env.DB.prepare("INSERT INTO messages (id,owner_id,direction,folder,from_address,to_addresses,cc_addresses,subject,text_body,message_id,is_read,sent_at,received_at) VALUES (?,?,'inbound','inbox',?,?,?,?,?,?,0,?,?)").bind(inboxId,recipient.id,fromAddress,JSON.stringify([recipient.address]),JSON.stringify(cc),subject,textBody,messageId,sentAt,sentAt).run();
   for(const file of stored)await storeAttachment(env,recipient.id,inboxId,{...file,id:crypto.randomUUID()});
  }
  return json({ok:true,id:sentRowId,delivery:"internal-only"},201);
