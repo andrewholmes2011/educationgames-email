@@ -16,7 +16,7 @@ The .holmes suffix is an application-internal namespace, not a registered public
 
 - The first account is an administrator created through the one-time bootstrap process.
 - Registration is invite-only. An administrator creates an invitation and chooses the student's district.
-- The student opens the one-time invitation link, chooses their mailbox username, and sets a password (12–200 characters).
+- The student opens the one-time invitation link, chooses their mailbox username, and sets a password (4–200 characters; longer passwords are strongly recommended).
 - The server generates the final address. The student cannot choose a different district from the one on the invitation.
 - Default district codes are rsd400 (Richland School District) and psd1 (Pasco School District).
 - Administrators can add other district codes while creating invitations, disable accounts, and revoke sessions.
@@ -71,7 +71,7 @@ Push to main to run checks. The deployment step is intentionally gated: after em
 ## Features
 
 - Invite-only account creation with district-scoped addresses.
-- PBKDF2-SHA-256 password hashing with per-account salts.
+- PBKDF2-SHA-256 password hashing with per-account salts. Passwords must be 4–200 characters; four-character passwords are weak, so use a longer unique password whenever possible.
 - HttpOnly, SameSite=Strict session cookies.
 - Login throttling by hashed client IP.
 - Private inbox, sent, archive, trash, and search.
