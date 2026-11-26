@@ -1,7 +1,7 @@
 import type {Env} from "./types";
 import {adminRoute} from "./admin";
 import {currentSession,requireAdmin,requireSession,login,logout,bootstrap,createInvite,acceptInvite,getInviteInfo,publicUser,listRememberedAccounts,restoreRememberedAccount,forgetRememberedAccount} from "./auth";
-import {listMessages,getMessage,updateMessage,sendMessage,downloadAttachment} from "./mail";
+import {listMessages,getMessage,updateMessage,sendMessage,downloadAttachment,reportMessage} from "./mail";
 import {error,json,validCommgaAddress} from "./security";
 import {newsletterStatus,sendNewsletter,unsubscribeInfo,unsubscribe} from "./newsletters";
 import {listGroups,adminGroups,createGroup,deleteGroup,removeGroupMember,inviteToGroup,groupInviteRoute} from "./lists-groups";
@@ -26,7 +26,7 @@ if(path==="/api/admin/newsletters"&&request.method==="POST"){const admin=await r
 const unsubscribeRoute=path.match(/^\/api\/newsletter\/unsubscribe\/([a-f0-9]{64})$/);if(unsubscribeRoute&&request.method==="GET")return unsubscribeInfo(env,unsubscribeRoute[1]);if(unsubscribeRoute&&request.method==="POST")return unsubscribe(request,env,unsubscribeRoute[1]);
 if(path==="/api/admin/users"&&request.method==="GET"){await requireAdmin(request,env);const users=await env.DB.prepare("SELECT id,email_alias,display_name,role,status,district_code,created_at FROM users ORDER BY created_at DESC").all();return json({users:users.results||[]});}
 if(path==="/api/admin/users/status"&&request.method==="POST"){const admin=await requireAdmin(request,env),body=await request.json() as {user_id?:string;status?:string};if(!body.user_id||!["active","disabled"].includes(body.status||""))return error("Invalid user status request.");if(body.user_id===admin.user.id&&body.status==="disabled")return error("You cannot disable your own account.");await env.DB.prepare("UPDATE users SET status=? WHERE id=?").bind(body.status,body.user_id).run();if(body.status==="disabled")await env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(body.user_id).run();return json({ok:true});}
-if(path==="/api/directory"&&request.method==="GET"){await requireSession(request,env);const users=await env.DB.prepare("SELECT id,email_alias,display_name,role,district_code,created_at FROM users WHERE status='active' ORDER BY display_name COLLATE NOCASE").all();return json({users:users.results||[]});}
+if(path==="/api/directory"&&request.method==="GET"){await requireSession(request,env);const users=await env.DB.prepare("SELECT id,email_alias,display_name,role,district_code,created_at FROM users WHERE status='active' ORDER BY display_name COLLATE NOCASE").all();const groups=await env.DB.prepare("SELECT id,name,address FROM mail_groups WHERE enabled=1 ORDER BY name COLLATE NOCASE").all();return json({users:users.results||[],groups:groups.results||[]});}
 if(path==="/api/groups"&&request.method==="GET"){const s=await requireSession(request,env);return listGroups(env,s.user);}
 if(path==="/api/admin/groups"&&request.method==="GET"){await requireAdmin(request,env);return adminGroups(env);}
 if(path==="/api/admin/groups"&&request.method==="POST"){const s=await requireAdmin(request,env);return createGroup(request,env,s.user);}
@@ -39,6 +39,7 @@ if(path==="/api/admin/senders"&&request.method==="POST"){const admin=await requi
 const senderDelete=path.match(/^\/api\/admin\/senders\/([a-f0-9-]+)$/);if(senderDelete&&request.method==="DELETE"){await requireAdmin(request,env);const result=await env.DB.prepare("DELETE FROM sender_identities WHERE id=?").bind(senderDelete[1]).run();return (result.meta.changes||0)?json({ok:true}):error("Sender identity not found.",404);}
 if(path==="/api/messages"&&request.method==="GET"){const session=await requireSession(request,env);return listMessages(request,env,session.user);}
 if(path==="/api/messages/send"&&request.method==="POST"){const session=await requireSession(request,env);return sendMessage(request,env,session.user);}
+const messageReport=path.match(/^\/api\/messages\/([a-f0-9-]+)\/report$/);if(messageReport&&request.method==="POST"){const session=await requireSession(request,env);return reportMessage(request,env,session.user,messageReport[1]);}
 const message=path.match(/^\/api\/messages\/([a-f0-9-]+)$/);if(message&&request.method==="GET"){const session=await requireSession(request,env);return getMessage(env,session.user,message[1]);}if(message&&request.method==="PATCH"){const session=await requireSession(request,env);return updateMessage(request,env,session.user,message[1]);}
 const attachment=path.match(/^\/api\/attachments\/([a-f0-9-]+)$/);if(attachment&&request.method==="GET"){const session=await requireSession(request,env);return downloadAttachment(env,session.user,attachment[1]);}
 if(path.startsWith("/api/admin/"))return adminRoute(request,env,path);
