@@ -238,3 +238,25 @@ th{color:#9db5d2}
 
 .newsletter-preview-content a.email-cta,.rich-message a.email-cta,.email-cta{display:inline-block;padding:11px 20px;border-radius:7px;background:#1769c2;color:#fff!important;text-decoration:none!important;font-weight:700}
 .compose-editor{white-space:pre-wrap}
+
+/* Recipient selection and message oversight */
+.privacy-notice{border-color:#b8c9e4;background:#f3f7ff;color:#334b70;font-weight:500}
+.recipient-picker{display:grid;gap:8px;margin:-4px 0 14px}
+.recipient-picker>input[type=text]{cursor:pointer;background:var(--surface)}
+.recipient-picker details{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)}
+.recipient-picker summary{cursor:pointer;font-weight:600;color:var(--text)}
+.recipient-picker input[type=search]{margin:10px 0;width:100%}
+.recipient-options{max-height:250px;overflow:auto;display:grid;gap:2px}
+.recipient-option{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;margin:0!important}
+.recipient-option:hover{background:var(--hover)}
+.recipient-option input{width:auto;margin:0}
+.recipient-option span{display:grid;gap:2px}
+.recipient-option small{color:var(--muted);font-size:11px}
+.oversight-columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.oversight-columns>div{min-width:0}
+.oversight-columns h4{margin:12px 0 6px;font-size:13px}
+.admin-message-modal{max-height:85vh;overflow:auto;width:min(760px,100%)}
+.admin-message-modal .body{white-space:normal;overflow-wrap:anywhere;line-height:1.7;padding:12px 0}
+.admin-message-modal .admin-card-title{display:flex;align-items:center;justify-content:space-between}
+.admin-message-modal .admin-card-title h3{margin:0}
+@media(max-width:720px){.oversight-columns{grid-template-columns:1fr}.recipient-picker details{max-width:100%}}
