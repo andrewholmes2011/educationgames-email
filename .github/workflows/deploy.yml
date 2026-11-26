@@ -12,6 +12,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Check browser JavaScript syntax
+        run: node --check public/app.js && node --check public/admin.js
       - run: npm run typecheck
       - run: npm test
       - name: Apply D1 migrations
