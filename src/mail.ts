@@ -1,11 +1,17 @@
 import type {Env,AuthUser} from "./types";
 import {cleanFilename,error,json,validEmail} from "./security";
 const CHUNK_BYTES=128*1024;
-async function resolveInternalRecipient(address:string,env:Env):Promise<{address:string;id:string}|null>{
+async function resolveInternalRecipients(address:string,env:Env):Promise<Array<{address:string;id:string}>|null>{
  const normalized=address.trim().toLowerCase();if(!validEmail(normalized))return null;
  const user=await env.DB.prepare("SELECT id,email_alias AS address FROM users WHERE email_alias=? COLLATE NOCASE AND status='active'").bind(normalized).first<{id:string;address:string}>();
- if(user)return user;
- return await env.DB.prepare("SELECT u.id,u.email_alias AS address FROM sender_identities s JOIN users u ON u.id=s.reply_to_user_id WHERE s.address=? COLLATE NOCASE AND s.enabled=1 AND u.status='active'").bind(normalized).first<{id:string;address:string}>();
+ if(user)return [user];
+ const group=await env.DB.prepare("SELECT id,address FROM mail_groups WHERE address=? COLLATE NOCASE AND enabled=1").bind(normalized).first<{id:string;address:string}>();
+ if(group){
+  const members=await env.DB.prepare("SELECT u.id,u.email_alias AS address FROM mail_group_members m JOIN users u ON u.id=m.user_id WHERE m.group_id=? AND u.status='active'").bind(group.id).all<{id:string;address:string}>();
+  return (members.results||[]).map(m=>({id:m.id,address:group.address}));
+ }
+ const sender=await env.DB.prepare("SELECT u.id,u.email_alias AS address FROM sender_identities s JOIN users u ON u.id=s.reply_to_user_id WHERE s.address=? COLLATE NOCASE AND s.enabled=1 AND u.status='active'").bind(normalized).first<{id:string;address:string}>();
+ return sender?[sender]:null;
 }
 export async function listMessages(request:Request,env:Env,user:AuthUser):Promise<Response>{
  const url=new URL(request.url),folder=url.searchParams.get("folder")||"inbox",allowed=["inbox","sent","drafts","trash","archive"];
@@ -45,12 +51,16 @@ export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise
  const form=await request.formData(),toRaw=String(form.get("to")||""),ccRaw=String(form.get("cc")||""),requestedFrom=String(form.get("from")||"").trim().toLowerCase(),subject=String(form.get("subject")||"").trim().slice(0,998),textBody=String(form.get("text")||"").slice(0,100000);
  let fromAddress=user.email_alias;
  if(requestedFrom&&requestedFrom!==user.email_alias){
-  if(user.role==="admin"){
+  const group=await env.DB.prepare("SELECT g.address FROM mail_groups g JOIN mail_group_members m ON m.group_id=g.id WHERE g.address=? COLLATE NOCASE AND g.enabled=1 AND m.user_id=?").bind(requestedFrom,user.id).first<{address:string}>();
+  if(group){fromAddress=group.address;}
+  else if(user.role==="admin"){
    if(!validEmail(requestedFrom)||!requestedFrom.endsWith(".holmes"))return error("Admin sender addresses must be valid internal .holmes addresses.",400);
    const account=await env.DB.prepare("SELECT id FROM users WHERE email_alias=? COLLATE NOCASE AND status='active'").bind(requestedFrom).first<{id:string}>();
    if(account&&account.id!==user.id)return error("An administrator cannot send using another account's personal mailbox address.",409);
    const existing=await env.DB.prepare("SELECT reply_to_user_id FROM sender_identities WHERE address=? COLLATE NOCASE AND enabled=1").bind(requestedFrom).first<{reply_to_user_id:string}>();
    if(existing&&existing.reply_to_user_id!==user.id)return error("That sender address is already assigned to a different reply mailbox.",409);
+   const groupAddress=await env.DB.prepare("SELECT id FROM mail_groups WHERE address=? COLLATE NOCASE").bind(requestedFrom).first();
+   if(groupAddress)return error("Choose the group from the available group sender list.",403);
    if(!existing)await env.DB.prepare("INSERT INTO sender_identities (id,address,display_name,reply_to_user_id,created_by) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),requestedFrom,"Administrator sender",user.id,user.id).run();
    fromAddress=requestedFrom;
   }else{
@@ -65,10 +75,13 @@ export async function sendMessage(request:Request,env:Env,user:AuthUser):Promise
  if(!subject)return error("Subject is required.");if(!textBody.trim())return error("Message body is required.");
  const internalRecipients:Array<{address:string;id:string}>=[];
  for(const address of [...recipients,...cc]){
-  const target=await resolveInternalRecipient(address,env);
-  if(!target)return error("Only active EducationGames Mail addresses and approved sender identities are allowed. Unknown or external address: "+address,403);
-  if(target.id!==user.id&&!internalRecipients.some(r=>r.id===target.id))internalRecipients.push({address:address.toLowerCase(),id:target.id});
+  const targets=await resolveInternalRecipients(address,env);
+  if(!targets)return error("Only active EducationGames Mail addresses, group addresses, and approved sender identities are allowed. Unknown or external address: "+address,403);
+  for(const target of targets){
+   if(!internalRecipients.some(r=>r.id===target.id))internalRecipients.push({address:address.toLowerCase(),id:target.id});
+  }
  }
+ if(internalRecipients.length>200)return error("This message expands to more than 200 mailboxes. Reduce the number of recipients or group members.");
  const maxBytes=Math.min(1024*1024,Math.max(1024,Number(env.MAX_ATTACHMENT_BYTES||1048576))),stored:StoredAttachment[]=[];let total=0;
  for(const value of form.getAll("attachments")){
   if(!(value instanceof File)||value.size===0)continue;
