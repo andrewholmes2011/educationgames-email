@@ -21,7 +21,8 @@ function textFromHtml(html:string):string{return html.replace(/<\s*br\s*\/?>/gi,
 export async function newsletterStatus(env:Env):Promise<Response>{
  const r=await env.DB.prepare("SELECT COUNT(*) AS total FROM users u LEFT JOIN newsletter_preferences p ON p.user_id=u.id WHERE u.status='active' AND (p.unsubscribed_at IS NULL)").first<{total:number}>();
  const d=await env.DB.prepare("SELECT code,display_name FROM districts WHERE enabled=1 ORDER BY display_name").all();
- return json({subscribers:r?.total||0,districts:d.results||[]});
+ const campaigns=await env.DB.prepare("SELECT c.id,c.subject,c.audience,c.recipient_count,c.created_at,u.display_name AS created_by FROM newsletter_campaigns c JOIN users u ON u.id=c.created_by ORDER BY c.created_at DESC LIMIT 10").all();
+ return json({subscribers:r?.total||0,districts:d.results||[],campaigns:campaigns.results||[]});
 }
 export async function sendNewsletter(request:Request,env:Env,admin:AuthUser):Promise<Response>{
  let body:any;try{body=await request.json();}catch{return error("Invalid JSON.");}
