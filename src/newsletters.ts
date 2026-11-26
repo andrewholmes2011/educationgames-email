@@ -1,7 +1,7 @@
 import type {Env,AuthUser} from "./types";
 import {error,json,randomToken,sha256} from "./security";
 
-function escapeHtml(value:string):string{return value.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));}
+function escapeHtml(value:string):string{return value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/\x27/g,"&#39;");}
 export function sanitizeNewsletterHtml(input:string):string{
  let html=String(input||"").slice(0,60000);
  html=html.replace(/<!--[\s\S]*?-->/g,"").replace(/<(script|style|iframe|object|embed|form|input|button|svg|math|video|audio)[^>]*>[\s\S]*?<\/\1\s*>/gi,"");
