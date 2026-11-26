@@ -6,6 +6,7 @@ async function admin(request:Request,env:Env){return (await requireAdmin(request
 async function bodyOf(request:Request){try{return await request.json() as Record<string,any>;}catch{return null;}}
 export async function adminRoute(request:Request,env:Env,path:string):Promise<Response>{
  const actor=await admin(request,env),method=request.method;
+ if(path==="/api/admin/senders"&&method==="GET"){const r=await env.DB.prepare("SELECT s.id,s.address,s.display_name,s.reply_to_user_id,u.email_alias AS reply_to,s.enabled FROM sender_identities s JOIN users u ON u.id=s.reply_to_user_id ORDER BY s.display_name COLLATE NOCASE").all();return json({senders:r.results||[]});}
  if(path==="/api/admin/districts"){
   if(method==="GET"){const r=await env.DB.prepare("SELECT code,display_name,enabled,created_at FROM districts ORDER BY display_name COLLATE NOCASE").all();return json({districts:r.results||[]});}
   if(method==="POST"){const b=await bodyOf(request);if(!b)return error("Invalid JSON.");const code=String(b.code||"").trim().toLowerCase(),name=String(b.display_name||"").trim().slice(0,100);if(!validDistrictCode(code)||!name)return error("Enter a valid district code and display name.");try{await env.DB.prepare("INSERT INTO districts(code,display_name,enabled) VALUES(?,?,1)").bind(code,name).run();}catch{return error("That district code already exists.",409);}return json({ok:true},201);}
