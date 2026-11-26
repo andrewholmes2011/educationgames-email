@@ -151,14 +151,6 @@ th{color:#9db5d2}
 }
 
 
-/* Mailing lists and shared group mailbox controls */
-.member-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px;max-height:280px;overflow:auto;padding:12px;border:1px solid var(--border,#29466f);border-radius:12px;background:rgba(8,20,42,.45)}
-.check-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;background:rgba(34,83,145,.14);font-size:13px}
-.check-row input{width:auto;accent-color:#3b82f6}
-#list-choice,#group-create input,#list-create input{width:100%}
-#groups-existing,#lists-existing{margin-top:16px}
-.sender-item small{overflow-wrap:anywhere}
-
 /* Shared group inbox invitations */
 .group-card{padding:14px 0;border-top:1px solid var(--line)}
 .group-card-head,.group-invite-controls{display:flex;align-items:center;justify-content:space-between;gap:12px}
