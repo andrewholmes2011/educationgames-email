@@ -34,6 +34,53 @@ window.renderAdminPanel=async function(){
    <section class="panel admin-card"><h3>Shared group mailboxes</h3><p class="muted">Create and manage group addresses, members, and access.</p><form id="group-add"><label>Group name<input name="name" required maxlength="80" placeholder="Robotics Team"></label><label>Group address<input name="address" required maxlength="100" placeholder="robotics@commga.com"></label><div id="group-add-members" class="member-picker"></div><button class="primary">Create group</button><p id="group-error" class="error"></p></form><div id="admin-groups">Loading groups…</div></section>
   </div>
  </div>`;
+ const sourceGrid=c.querySelector(".admin-grid");
+ const adminSections=[...sourceGrid.querySelectorAll(".admin-card")];
+ const panelCards=[
+  ["Accounts","Manage existing mailboxes, roles, and account status.","Users and access"],
+  ["Message oversight","Read all messages and review user-submitted reports.","Inbox supervision"],
+  ["Add account","Create a new mailbox and assign its district and role.","New mailbox"],
+  ["Districts","Create, update, enable, or disable districts.","Organization"],
+  ["Invitations","Create student invitations and revoke unused invitations.","Account onboarding"],
+  ["Newsletter Studio","Create, preview, and send internal newsletters.","Announcements"],
+  ["Sender identities","Manage approved From addresses and reply destinations.","Sending addresses"],
+  ["Shared group mailboxes","Create group inboxes and manage membership.","Team inboxes"]
+ ];
+ if(adminSections.length!==panelCards.length) throw new Error("Expected 8 admin sections; found "+adminSections.length);
+ const workspace=document.createElement("div");
+ workspace.className="admin-workspace";
+ workspace.setAttribute("aria-label","Administrator tools");
+ workspace.innerHTML=panelCards.map((item,i)=>'<button type="button" class="admin-launch-card" data-admin-open="'+i+'"><span class="admin-launch-index">'+String(i+1).padStart(2,"0")+'</span><span class="admin-launch-copy"><b>'+item[0]+'</b><small>'+item[1]+'</small></span><span class="admin-launch-meta">'+item[2]+' <span aria-hidden="true">↗</span></span></button>').join("");
+ const modal=document.createElement("div");
+ modal.className="admin-workspace-backdrop";
+ modal.hidden=true;
+ modal.innerHTML='<section class="admin-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="admin-workspace-title"><header class="admin-workspace-modal-head"><div><p class="eyebrow">ADMINISTRATION</p><h2 id="admin-workspace-title">Admin tool</h2></div><button type="button" class="secondary" data-admin-close aria-label="Close admin tool">Close</button></header><div class="admin-workspace-modal-body"></div></section>';
+ c.insertBefore(workspace,sourceGrid);
+ c.append(modal);
+ const modalBody=modal.querySelector(".admin-workspace-modal-body");
+ const modalTitle=modal.querySelector("#admin-workspace-title");
+ const sectionOrigins=adminSections.map(section=>({section,parent:section.parentElement,next:section.nextSibling}));
+ function closeAdminTool(){
+  const active=modalBody.querySelector(".admin-card");
+  if(active){const origin=sectionOrigins[adminSections.indexOf(active)];origin.parent.insertBefore(active,origin.next&&origin.next.parentNode===origin.parent?origin.next:null);}
+  modal.hidden=true;
+  document.body.classList.remove("admin-workspace-open");
+ }
+ function openAdminTool(index){
+  const section=adminSections[index];
+  if(!section)return;
+  const heading=panelCards[index][0];
+  modalTitle.textContent=heading;
+  modalBody.replaceChildren(section);
+  modal.hidden=false;
+  document.body.classList.add("admin-workspace-open");
+  modal.querySelector("[data-admin-close]").focus();
+ }
+ workspace.querySelectorAll("[data-admin-open]").forEach(button=>button.addEventListener("click",()=>openAdminTool(Number(button.dataset.adminOpen))));
+ modal.querySelector("[data-admin-close]").addEventListener("click",closeAdminTool);
+ modal.addEventListener("click",event=>{if(event.target===modal)closeAdminTool();});
+ document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!modal.hidden)closeAdminTool();});
+ sourceGrid.hidden=true;
  let users=[],districts=[],senders=[],groups=[],invites=[];
  const load=async()=>{[users,districts,senders,groups,invites]=await Promise.all([api("/api/admin/users").then(x=>x.users),api("/api/admin/districts").then(x=>x.districts),api(senderAdminPath).then(x=>x.senders),api("/api/admin/groups").then(x=>x.groups),api("/api/admin/invites").then(x=>x.invites)]);draw();await Promise.all([loadNewsletterStatus(),loadOversight()]);};
  const selectOptions=(items,value,label)=>items.map(x=>'<option value="'+esc(x[value])+'">'+esc(x[label])+'</option>').join("");
