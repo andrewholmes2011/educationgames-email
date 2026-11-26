@@ -235,3 +235,6 @@ th{color:#9db5d2}
 .newsletter-mail-shell{max-width:680px;margin:0 auto;color:#e7f0ff;line-height:1.7}
 .newsletter-footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
 .newsletter-footer a{color:#70b7ff;font-weight:700}
+
+.newsletter-preview-content a.email-cta,.rich-message a.email-cta,.email-cta{display:inline-block;padding:11px 20px;border-radius:7px;background:#1769c2;color:#fff!important;text-decoration:none!important;font-weight:700}
+.compose-editor{white-space:pre-wrap}
