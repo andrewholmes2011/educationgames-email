@@ -111,7 +111,7 @@ export function validStudentUsername(value: string): boolean {
 export const EMAIL_DOMAIN = "commga.com";
 
 export function validCommgaAddress(value: string): boolean {
-  return /^[a-z0-9][a-z0-9._-]{0,30}@commga\\.com$/i.test(value);
+  return /^[a-z0-9][a-z0-9._-]{0,30}@commga\.com$/i.test(value);
 }
 
 export function validSiteAddress(value: string): boolean {
