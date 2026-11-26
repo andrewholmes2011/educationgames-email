@@ -4,13 +4,13 @@ EducationGames Mail is a site-only private messaging platform. It gives invited 
 
 ## Address format
 
-A student's mailbox is generated as username@students.<district-code>.holmes.
+A student's mailbox is generated as username@students.<district-code>@commga.com.
 
 Examples:
-- andrew@students.rsd400.holmes — Richland School District code rsd400
-- alex@students.psd1.holmes — Pasco School District code psd1
+- andrew@students.rsd400@commga.com — Richland School District code rsd400
+- alex@students.psd1@commga.com — Pasco School District code psd1
 
-The .holmes suffix is an application-internal namespace, not a registered public domain. These addresses are not official school district accounts, are not verified by the districts, and cannot receive or send public Internet email. The platform only delivers messages between active EducationGames Mail accounts.
+The @commga.com suffix is an application-internal namespace, not a registered public domain. These addresses are not official school district accounts, are not verified by the districts, and cannot receive or send public Internet email. The platform only delivers messages between active EducationGames Mail accounts.
 
 ## Account model
 
@@ -29,7 +29,7 @@ The .holmes suffix is an application-internal namespace, not a registered public
 
 R2 is not required. Attachments are stored in D1 as 128 KiB BLOB chunks, with a 1 MiB combined attachment limit per message. This keeps each database row small and avoids external object storage.
 
-There is deliberately no Email Routing or Email Sending binding: the requested .holmes addresses are not real Internet domains. Internal message delivery happens directly through the Worker and D1.
+There is deliberately no Email Routing or Email Sending binding: the requested @commga.com addresses are not real Internet domains. Internal message delivery happens directly through the Worker and D1.
 
 ## Requirements
 
@@ -48,7 +48,7 @@ There is deliberately no Email Routing or Email Sending binding: the requested .
 6. Run npm run db:local.
 7. Run npm run dev and open the local Wrangler URL.
 
-On first visit, create the administrator using the bootstrap secret. The administrator mailbox is admin@staff.educationgames.holmes.
+On first visit, create the administrator using the bootstrap secret. The administrator mailbox is admin@staff.educationgames@commga.com.
 
 ## Production Cloudflare setup
 
@@ -58,7 +58,7 @@ Apply the production schema and deploy with npm run db:remote, npm run typecheck
 
 After creating the first administrator, set ALLOW_BOOTSTRAP to false in wrangler.jsonc and redeploy. The API also refuses a second bootstrap once any user exists, but disabling the endpoint is important defense in depth.
 
-Cloudflare will provide a workers.dev URL if enabled for your account. A custom site hostname can be attached later; it is not required for the internal .holmes mailbox namespace.
+Cloudflare will provide a workers.dev URL if enabled for your account. A custom site hostname can be attached later; it is not required for the internal @commga.com mailbox namespace.
 
 ## GitHub deployment
 
@@ -83,7 +83,7 @@ Push to main to run checks. The deployment step is intentionally gated: after em
 
 ## Security and operational notes
 
-- Do not imply that a mailbox is an official account issued by a school district. The .holmes namespace is owned by this application only.
+- Do not imply that a mailbox is an official account issued by a school district. The @commga.com namespace is owned by this application only.
 - An invitation is a bearer credential. Share it privately and treat it as single-use.
 - Use HTTPS in production. The session cookie is marked Secure automatically for HTTPS requests.
 - Before a real student rollout, add Cloudflare Turnstile, stronger abuse controls, password recovery, audit log retention, backups/restore drills, and a published privacy/acceptable-use policy.
