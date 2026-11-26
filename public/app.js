@@ -31,7 +31,7 @@ function compose(p={}){const c=document.querySelector("#content"),isAdmin=state.
  Promise.all([api("/api/groups"),api("/api/lists"),api("/api/senders")]).then(([g,l,se])=>{
   const groups=g.groups||[],lists=l.lists||[];
   if(!isAdmin){for(const x of [...(se.senders||[]),...groups.map(x=>({address:x.address,display_name:x.name+" (group)"}))]){const o=document.createElement("option");o.value=x.address;o.textContent=x.display_name+" · "+x.address;fromControl.append(o);}}
-  else {for(const x of groups){const o=document.createElement("option");o.value=x.address;o.textContent=x.name+" (group) · "+x.address;const selector=document.createElement("select");} }
+  else if(groups.length){const label=document.createElement("label");label.textContent="Choose a group sender";const selector=document.createElement("select");selector.innerHTML='<option value="">Use custom or personal From address</option>';for(const x of groups){const o=document.createElement("option");o.value=x.address;o.textContent=x.name+" · "+x.address;selector.append(o);}label.append(selector);fromControl.parentElement.after(label);selector.onchange=()=>{if(selector.value)fromControl.value=selector.value;};}
   const listSelect=document.querySelector("#list-choice");for(const x of lists){const o=document.createElement("option");o.value=x.id;o.textContent=x.name+" ("+x.members.length+" members)";listSelect.append(o);}
   listSelect.onchange=()=>{const selected=lists.find(x=>x.id===listSelect.value);if(!selected)return;const to=document.querySelector('[name="to"]'),emails=selected.members.map(m=>m.email_alias);to.value=[to.value,...emails].filter(Boolean).join(", ");listSelect.value="";};
  }).catch(()=>{});
