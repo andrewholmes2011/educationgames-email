@@ -104,7 +104,7 @@ export async function reportMessage(request:Request,env:Env,user:AuthUser,id:str
  if(!["Harassment or bullying","Threats or intimidation","Spam or unwanted messages","Inappropriate content","Impersonation","Other concern"].includes(reason))return error("Choose a valid report reason.");
  const existing=await env.DB.prepare("SELECT id FROM message_reports WHERE message_id=? AND reporter_id=? AND status='open'").bind(id,user.id).first();
  if(existing)return error("You have already reported this message.",409);
- await env.DB.prepare("INSERT INTO message_reports(id,message_id,message_owner_id,reporter_id,reporter_email,message_from,message_to,message_subject,message_text,message_html,reason,details) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),id,message.owner_id,user.id,message.owner_id,message.from_address,message.to_addresses,message.subject,message.text_body,message.html_body,reason,details).run();
+ await env.DB.prepare("INSERT INTO message_reports(id,message_id,message_owner_id,reporter_id,reporter_email,message_from,message_to,message_subject,message_text,message_html,reason,details) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),id,message.owner_id,user.id,user.email_alias,message.from_address,message.to_addresses,message.subject,message.text_body,message.html_body,reason,details).run();
  return json({ok:true},201);
 }
 
