@@ -37,7 +37,7 @@ export async function adminRoute(request:Request,env:Env,path:string):Promise<Re
   const rows=await env.DB.prepare("SELECT m.id,m.owner_id,u.display_name AS owner_name,u.email_alias AS owner_email,m.direction,m.folder,m.from_address,m.to_addresses,m.subject,substr(m.text_body,1,240) AS preview,m.sent_at,m.received_at FROM messages m JOIN users u ON u.id=m.owner_id WHERE datetime(COALESCE(m.sent_at,m.received_at,m.created_at))>=datetime('now','-90 days') ORDER BY COALESCE(m.sent_at,m.received_at) DESC LIMIT ?").bind(limit).all();
   return json({messages:rows.results||[]});
  }
- const adminMessage=path.match(/^\/api\\/admin\\/messages\\/([a-f0-9-]+)$/);
+ const adminMessage=path.match(/^\/api\/admin\/messages\/([a-f0-9-]+)$/);
  if(adminMessage&&method==="GET"){
   const row=await env.DB.prepare("SELECT m.*,u.display_name AS owner_name,u.email_alias AS owner_email FROM messages m JOIN users u ON u.id=m.owner_id WHERE m.id=? AND datetime(COALESCE(m.sent_at,m.received_at,m.created_at))>=datetime('now','-90 days')").bind(adminMessage[1]).first();
   return row?json({message:row}):error("Message not found.",404);
@@ -46,7 +46,7 @@ export async function adminRoute(request:Request,env:Env,path:string):Promise<Re
   const rows=await env.DB.prepare("SELECT id,message_id,reporter_email,message_from,message_to,message_subject,message_text,message_html,reason,details,status,created_at FROM message_reports WHERE datetime(created_at)>=datetime('now','-90 days') ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END,created_at DESC LIMIT 250").all();
   return json({reports:rows.results||[]});
  }
- const report=path.match(/^\/api\\/admin\\/reports\\/([a-f0-9-]+)$/);
+ const report=path.match(/^\/api\/admin\/reports\/([a-f0-9-]+)$/);
  if(report&&method==="PATCH"){
   const b=await bodyOf(request);if(!b)return error("Invalid JSON.");
   if(!["open","reviewed","dismissed"].includes(String(b.status||"")))return error("Choose a valid report status.");
