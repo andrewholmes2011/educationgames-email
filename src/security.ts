@@ -82,8 +82,11 @@ export async function verifyPassword(password: string, stored: string): Promise<
     false,
     ["deriveBits"]
   );
+  // Copy into an ArrayBuffer-backed view; Cloudflare Workers types require an ArrayBuffer BufferSource.
+  const saltBuffer = new ArrayBuffer(salt.length);
+  new Uint8Array(saltBuffer).set(salt);
   const actual = new Uint8Array(await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    { name: "PBKDF2", salt: saltBuffer, iterations, hash: "SHA-256" },
     key,
     256
   ));
